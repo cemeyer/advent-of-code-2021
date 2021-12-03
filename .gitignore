@@ -1,3 +1,6 @@
 /target
 /day*.in
 /Cargo.lock
+/session.id
+/perf.data
+/perf.data.old

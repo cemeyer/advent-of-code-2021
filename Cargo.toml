@@ -17,6 +17,10 @@ name = "day2"
 path = "day2.rs"
 
 [[bin]]
+name = "day3"
+path = "day3.rs"
+
+[[bin]]
 name = "template"
 path = "template.rs"
 
