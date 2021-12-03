@@ -16,6 +16,10 @@ path = "day1.rs"
 name = "day2"
 path = "day2.rs"
 
+[[bin]]
+name = "template"
+path = "template.rs"
+
 [dependencies]
-anyhow = "1.0.51"
+anyhow = { version = "1.0.51", features = ["backtrace"] }
 ureq = "2.3.1"
