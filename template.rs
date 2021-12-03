@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_imports, unused_variables)]
+#![allow(dead_code, unused_imports, unused_parens, unused_variables)]
 
 use anyhow::{anyhow, Result};
 
@@ -20,7 +20,7 @@ fn main() -> Result<()> {
     let data = puzzle.get_data()?;
 
     let answ1 = part1(data);
-    submit(&mut puzzle, aoc::Part::One, &answ1)?;
+    //submit(&mut puzzle, aoc::Part::One, &answ1)?;
     //let answ2 = part2(data);
     //submit(&mut puzzle, aoc::Part::Two, &answ2)?;
 
