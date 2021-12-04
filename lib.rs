@@ -152,8 +152,13 @@ impl Puzzle {
 
         if body.contains("That's the right answer") {
             if self.day == 25 && part == Part::One {
-                // XXX only valid if we have the other 49 stars.
-                // self.submit_answer(Part::Two, "done")?;
+                let stats = get_stats_session(&self.session, self.year)
+                    .with_context(||
+                                  format!("Fetching stats to try autocompleting #50"))?;
+                // Only valid if we have the other 49 stars.
+                if stats.count_stars() == 49 {
+                    return self.submit_answer(Part::Two, "done");
+                }
             }
             return Ok(());
         }
@@ -250,9 +255,14 @@ impl Stats {
 }
 
 pub fn get_stats(year: u16) -> Result<Stats> {
+    let session = get_session()?;
+    get_stats_session(&session, year)
+}
+
+fn get_stats_session(session: &str, year: u16) -> Result<Stats> {
     // HTTP fetch
     let uri = format!(STATS_URI!(), year = year);
-    let resp = apply_common_cookies(ureq::get(&uri), &get_session()?, year)
+    let resp = apply_common_cookies(ureq::get(&uri), session, year)
         .call()
         .with_context(|| format!("Fetching stats for {}", year))?;
     let body = resp.into_string()?;
