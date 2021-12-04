@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_imports, unused_parens, unused_variables)]
 
 use anyhow::{anyhow, Result};
+use std::collections::*;
 
 fn part1(input: &str) -> String {
     format!("{}", 1)
