@@ -4,8 +4,14 @@ use anyhow::{anyhow, Context, Result};
 use std::io::ErrorKind;
 
 // Work around Rust's inability to concatenate / format const strings.
+macro_rules! YEAR_URI {
+    () => { "https://adventofcode.com/{year}" };
+}
+macro_rules! STATS_URI {
+    () => { concat!(YEAR_URI!(), "/leaderboard/self") };
+}
 macro_rules! DAY_URI {
-    () => { "https://adventofcode.com/{year}/day/{day}" };
+    () => { concat!(YEAR_URI!(), "/day/{day}") };
 }
 macro_rules! INPUT_URI {
     () => { concat!(DAY_URI!(), "/input") };
@@ -81,6 +87,14 @@ impl std::fmt::Display for SubmitError {
     }
 }
 
+fn apply_common_cookies(req: ureq::Request, session: &str, year: u16) -> ureq::Request {
+    req
+        .set("Cookie", &format!("session={}", session))
+        // For the common logic, use the year (calendar) page as Referer
+        .set("Referer", &format!(YEAR_URI!(), year = year))
+        .set("User-Agent", USER_AGENT)
+}
+
 impl Puzzle {
     pub fn new(year: u16, day: u16, session: String, input: Option<String>) -> Self {
         Self { year, day, session, input, }
@@ -98,10 +112,9 @@ impl Puzzle {
     }
 
     fn apply_common_cookies(&self, req: ureq::Request) -> ureq::Request {
-        req
-            .set("Cookie", &format!("session={}", self.session))
+        // For Puzzles, set Referer to that day's page
+        apply_common_cookies(req, &self.session, self.year)
             .set("Referer", &format!(DAY_URI!(), year = self.year, day = self.day))
-            .set("User-Agent", USER_AGENT)
     }
 
     fn fetch_data(&mut self) -> Result<()> {
@@ -165,4 +178,138 @@ impl Puzzle {
 
         return Err(anyhow!(SubmitError::Unexpected(body)));
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct DayPartStat {
+    pub time_hour: u8,
+    pub time_min: u8,
+    pub time_sec: u8,
+    pub rank: u32,
+    pub score: u8,
+}
+
+impl DayPartStat {
+    fn new() -> Self {
+        Self {
+            time_hour: 0,
+            time_min: 0,
+            time_sec: 0,
+            rank: 0,
+            score: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DayStat {
+    pub day: u8,
+    pub part1: DayPartStat,
+    pub part2: Option<DayPartStat>,
+}
+
+impl DayStat {
+    fn new(day: u8) -> Self {
+        Self { day, part1: DayPartStat::new(), part2: None, }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Stats {
+    days: Vec<DayStat>,
+}
+
+impl Stats {
+    fn new() -> Self {
+        Self { days: Vec::new(), }
+    }
+
+    pub fn day(&self, n: usize) -> Option<&DayStat> {
+        if n < 1 || n > self.days.len() {
+            return None;
+        }
+        Some(&self.days[n - 1])
+    }
+
+    pub fn days(&self) -> usize {
+        self.days.len()
+    }
+
+    pub fn count_stars(&self) -> usize {
+        let mut res = 0;
+
+        for day in self.days.iter() {
+            res += 1;
+            if day.part2.is_some() {
+                res += 1;
+            }
+        }
+
+        res
+    }
+}
+
+pub fn get_stats(year: u16) -> Result<Stats> {
+    // HTTP fetch
+    let uri = format!(STATS_URI!(), year = year);
+    let resp = apply_common_cookies(ureq::get(&uri), &get_session()?, year)
+        .call()
+        .with_context(|| format!("Fetching stats for {}", year))?;
+    let body = resp.into_string()?;
+
+    // World's worst HTML parser
+    let mut pre_count = 0;
+    let lines = body
+        .lines()
+        .filter(|line| {
+            // We're capturing the lines between the <pre> tags, and we only expect one section.
+            if line.contains("<pre") {
+                assert_eq!(pre_count, 0);
+                pre_count += 1;
+                false
+            } else if line.contains("</pre>") {
+                assert_eq!(pre_count, 1);
+                pre_count += 1;
+                false
+            } else {
+                pre_count == 1
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut res = Stats::new();
+    for line in lines.iter().rev() {
+        let mut words = line.split_ascii_whitespace();
+        let word1 = words.next().unwrap();
+        if word1 == "Day" {
+            break;
+        }
+        let dayn = word1.parse::<u8>().unwrap();
+
+        let mut day = DayStat::new(dayn);
+        let mut dayparts = (0..2).map(|_| {
+            let time = words.next().unwrap();
+            if time == "-" {
+                None
+            } else {
+                let mut time_parts = time.split(':');
+                let time_hour = time_parts.next().unwrap().parse::<u8>().unwrap();
+                let time_min = time_parts.next().unwrap().parse::<u8>().unwrap();
+                let time_sec = time_parts.next().unwrap().parse::<u8>().unwrap();
+
+                let rank = words.next().unwrap().parse::<u32>().unwrap();
+                let score = words.next().unwrap().parse::<u8>().unwrap();
+
+                let res = DayPartStat { time_hour, time_min, time_sec, rank, score, };
+                Some(res)
+            }
+        });
+        day.part1 = dayparts.next().unwrap().unwrap();
+        day.part2 = dayparts.next().unwrap();
+
+        assert_eq!(res.days.len() + 1, dayn as _);
+        res.days.push(day);
+    }
+
+    Ok(res)
 }

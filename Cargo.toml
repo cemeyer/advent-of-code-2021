@@ -25,6 +25,10 @@ name = "day4"
 path = "day4.rs"
 
 [[bin]]
+name = "stats"
+path = "stats.rs"
+
+[[bin]]
 name = "template"
 path = "template.rs"
 
