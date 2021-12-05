@@ -29,6 +29,10 @@ name = "day5"
 path = "day5.rs"
 
 [[bin]]
+name = "y2017day12"
+path = "y2017day12.rs"
+
+[[bin]]
 name = "stats"
 path = "stats.rs"
 
@@ -39,3 +43,6 @@ path = "template.rs"
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
 ureq = "2.3.1"
+
+# bin-only, but Cargo can't do that yet: https://github.com/rust-lang/cargo/issues/1982
+# graphlib = "0.6.3"  # Wasn't actually useful for connected components problem.

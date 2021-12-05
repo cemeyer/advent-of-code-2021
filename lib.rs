@@ -96,12 +96,16 @@ fn apply_common_cookies(req: ureq::Request, session: &str, year: u16) -> ureq::R
 }
 
 impl Puzzle {
-    pub fn new(year: u16, day: u16, session: String, input: Option<String>) -> Self {
+    fn new_internal(year: u16, day: u16, session: String, input: Option<String>) -> Self {
         Self { year, day, session, input, }
     }
 
+    pub fn new(year: u16, day: u16) -> Result<Self> {
+        Ok(Self::new_internal(year, day, get_session()?, try_read_input(day)?))
+    }
+
     pub fn new2021(day: u16) -> Result<Self> {
-        Ok(Self::new(2021, day, get_session()?, try_read_input(day)?))
+        Self::new(2021, day)
     }
 
     pub fn get_data(&mut self) -> Result<&str> {
