@@ -42,7 +42,5 @@ path = "template.rs"
 
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
+graphlib = "0.6.3"
 ureq = "2.3.1"
-
-# bin-only, but Cargo can't do that yet: https://github.com/rust-lang/cargo/issues/1982
-# graphlib = "0.6.3"  # Wasn't actually useful for connected components problem.

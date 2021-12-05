@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_imports, unused_parens, unused_variables)]
 
 use anyhow::{anyhow, Result};
+use graphlib::{Graph, VertexId};
 use std::collections::*;
 use std::hash::Hash;
 
@@ -54,5 +55,65 @@ impl<T: Clone + Eq + Hash> DisjointSetBuilder<T> {
         }
 
         components.into_values().collect()
+    }
+}
+
+impl DisjointSetBuilder<VertexId> {
+    /// Compute the disjoint sets in the provided graph.
+    ///
+    /// Vertices are identified by VertexId, because graphlib only provides one-directional lookup
+    /// and that option gives more flexibility.
+    ///
+    /// These are "weakly" connected components -- we treat any edge as connecting two sub-graphs.
+    pub fn from_graph<T>(graph: &Graph<T>) -> Self {
+        let mut res = Self::new();
+        for v in graph.vertices() {
+            res.add_vertex(v);
+        }
+        // N.B., graphlib considers these directional, while for this algorithm, we treat them as
+        // unidirectional.
+        for e in graph.edges() {
+            let (v1, v2) = e;
+            res.add_edge(v1, v2);
+        }
+        res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn graphlib_disjoint_set_example() {
+        let mut graph = Graph::<usize>::new();
+        let v1 = graph.add_vertex(1);
+        let v2 = graph.add_vertex(2);
+        let v3 = graph.add_vertex(3);
+        graph.add_edge(&v1, &v2).unwrap();
+        graph.add_edge(&v2, &v1).unwrap();
+
+        // Forest is:
+        // (1) <-> (2)     (3)
+
+
+        let mut forest = DisjointSetBuilder::from_graph(&graph);
+        let connected_values = forest.connected_components()
+            .iter()
+            .map(|hs| {
+                hs.iter()
+                    .map(|vid| graph.fetch(&vid).unwrap().clone())
+                    .collect::<HashSet<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(connected_values.len(), 2);
+        let (s1, s2) = if connected_values[0].len() == 1 {
+            (&connected_values[0], &connected_values[1])
+        } else {
+            (&connected_values[1], &connected_values[0])
+        };
+        assert_eq!(s1, &[3].iter().copied().collect::<HashSet<usize>>());
+        assert_eq!(s2, &[1, 2].iter().copied().collect::<HashSet<usize>>());
     }
 }
