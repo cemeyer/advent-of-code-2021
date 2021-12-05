@@ -23,7 +23,7 @@ macro_rules! SUBMIT_URI {
     () => { concat!(DAY_URI!(), "/answer") };
 }
 macro_rules! INPUT_PATH {
-    () => { "day{day}.in" };
+    () => { "{year}/day{day}.in" };
 }
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36";
 
@@ -33,16 +33,16 @@ fn get_session() -> Result<String> {
         .with_context(|| "Reading AoC session cookie from \"session.id\"")
 }
 
-fn try_read_input(day: u16) -> Result<Option<String>> {
-    match std::fs::read_to_string(format!(INPUT_PATH!(), day = day)) {
+fn try_read_input(year: u16, day: u16) -> Result<Option<String>> {
+    match std::fs::read_to_string(format!(INPUT_PATH!(), year = year, day = day)) {
         Ok(s) => Ok(Some(s)),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e)?,
     }
 }
 
-fn write_input(day: u16, input: &str) -> Result<()> {
-    Ok(std::fs::write(format!(INPUT_PATH!(), day = day), input)?)
+fn write_input(year: u16, day: u16, input: &str) -> Result<()> {
+    Ok(std::fs::write(format!(INPUT_PATH!(), year = year, day = day), input)?)
 }
 
 #[derive(Clone, Debug)]
@@ -104,7 +104,7 @@ impl Puzzle {
     }
 
     pub fn new(year: u16, day: u16) -> Result<Self> {
-        Ok(Self::new_internal(year, day, get_session()?, try_read_input(day)?))
+        Ok(Self::new_internal(year, day, get_session()?, try_read_input(year, day)?))
     }
 
     pub fn new2021(day: u16) -> Result<Self> {
@@ -134,7 +134,7 @@ impl Puzzle {
         let body = resp.into_string()?;
 
         // Cache
-        write_input(self.day, &body)?;
+        write_input(self.year, self.day, &body)?;
 
         self.input = Some(body);
         Ok(())
