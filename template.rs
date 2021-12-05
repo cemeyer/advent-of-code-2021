@@ -21,7 +21,7 @@ fn submit(puzzle: &mut aoc::Puzzle, part: aoc::Part, answ: &str) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let mut puzzle = aoc::Puzzle::new2021(9999)?;
+    let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
     let data = puzzle.get_data()?;
 
     let answ1 = part1(data);

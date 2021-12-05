@@ -35,6 +35,11 @@ name = "y2017day12"
 path = "2017/day12.rs"
 
 [[bin]]
+name = "y2017day14"
+path = "2017/day14.rs"
+
+# Test/examples
+[[bin]]
 name = "stats"
 path = "stats.rs"
 
