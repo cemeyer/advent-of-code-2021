@@ -8,6 +8,7 @@ edition = "2018"
 [lib]
 path = "lib.rs"
 
+# 2021
 [[bin]]
 name = "day1"
 path = "day1.rs"
@@ -28,9 +29,10 @@ path = "day4.rs"
 name = "day5"
 path = "day5.rs"
 
+# 2017
 [[bin]]
 name = "y2017day12"
-path = "y2017day12.rs"
+path = "2017/day12.rs"
 
 [[bin]]
 name = "stats"
