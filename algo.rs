@@ -2,6 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use graphlib::{Graph, VertexId};
+use std::convert::TryFrom;
 use std::collections::*;
 use std::hash::Hash;
 
@@ -115,5 +116,65 @@ mod tests {
         };
         assert_eq!(s1, &[3].iter().copied().collect::<HashSet<usize>>());
         assert_eq!(s2, &[1, 2].iter().copied().collect::<HashSet<usize>>());
+    }
+}
+
+/// Construct a 2d grid graph of `m` rows by `n` columns.
+///
+/// Returns a mapping from row, column to `VertexId`s, in addition to the constructed graph.
+///
+/// Really graphlib should internalize this.
+pub fn grid_2d_graph(m: usize, n: usize) -> (Vec<Vec<VertexId>>, Graph<(usize, usize)>) {
+    let mut key = Vec::new();
+    let mut graph = Graph::new();
+
+    for y in 0..m {
+        let mut key_row = Vec::new();
+        for x in 0..n {
+            let v = graph.add_vertex((y, x));
+            key_row.push(v);
+        }
+        key.push(key_row);
+    }
+
+    // Drop mut.
+    let key = key;
+
+    for y in 0..m {
+        for x in 0..n {
+            // Nodes are connected to the node in the preceeding row of the same column (if any).
+            if y > 0 {
+                graph.add_edge(&key[y-1][x], &key[y][x]).unwrap();
+                graph.add_edge(&key[y][x], &key[y-1][x]).unwrap();
+            }
+            // Nodes are connected to the node in the preceeding column of the same row (if any).
+            if x > 0 {
+                graph.add_edge(&key[y][x-1], &key[y][x]).unwrap();
+                graph.add_edge(&key[y][x], &key[y][x-1]).unwrap();
+            }
+        }
+    }
+
+    (key, graph)
+}
+
+#[cfg(test)]
+mod tests2 {
+    use super::*;
+
+    #[test]
+    fn graph2d_components() {
+        // (0, 0) <-> (0, 1)
+        //   |          |
+        // (1, 0) <-> (1, 1)
+        let (vertices, graph) = grid_2d_graph(2, 2);
+        assert_eq!(vertices.len(), 2);
+        assert_eq!(vertices[0].len(), 2);
+
+        let mut forest = DisjointSetBuilder::from_graph(&graph);
+        let connected_values = forest.connected_components();
+
+        assert_eq!(connected_values.len(), 1);
+        assert_eq!(connected_values[0].len(), 4);
     }
 }
