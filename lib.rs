@@ -3,6 +3,9 @@
 use anyhow::{anyhow, Context, Result};
 use std::io::ErrorKind;
 
+mod algo;
+pub use algo::*;
+
 // Work around Rust's inability to concatenate / format const strings.
 macro_rules! YEAR_URI {
     () => { "https://adventofcode.com/{year}" };
