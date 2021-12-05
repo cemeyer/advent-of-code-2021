@@ -172,10 +172,10 @@ impl Puzzle {
         }
 
         if body.contains("That's not the right answer") {
-            if body.contains("Your answer is too high") {
+            if body.contains("your answer is too high") {
                 return Err(anyhow!(SubmitError::TooHigh));
             }
-            if body.contains("Your answer is too low") {
+            if body.contains("your answer is too low") {
                 return Err(anyhow!(SubmitError::TooLow));
             }
             return Err(anyhow!(SubmitError::Wrong(body)));
