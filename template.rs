@@ -7,17 +7,8 @@ use std::convert::TryFrom;
 use std::collections::*;
 use std::hash::Hash;
 
-fn part1(input: &str) -> String {
-    format!("{}", 1)
-}
-
-fn part2(input: &str) -> String {
-    format!("{}", 2)
-}
-
-fn submit(puzzle: &mut aoc::Puzzle, part: aoc::Part, answ: &str) -> Result<()> {
-    println!("Submitting: {} for part {:?}", answ, part);
-    puzzle.submit_answer(part, answ)
+fn part1(input: &str) -> i64 {
+    1
 }
 
 fn main() -> Result<()> {
@@ -25,9 +16,12 @@ fn main() -> Result<()> {
     let data = puzzle.get_data()?;
 
     let answ1 = part1(data);
-    //submit(&mut puzzle, aoc::Part::One, &answ1)?;
+    dbg!(&answ1);
+    puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
+
     //let answ2 = part2(data);
-    //submit(&mut puzzle, aoc::Part::Two, &answ2)?;
+    //dbg!(&answ2);
+    //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
 
     Ok(())
 }
