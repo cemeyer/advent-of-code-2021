@@ -47,6 +47,10 @@ name = "y2017day14"
 path = "2017/day14.rs"
 
 [[bin]]
+name = "y2017day21"
+path = "2017/day21.rs"
+
+[[bin]]
 name = "y2017day23"
 path = "2017/day23.rs"
 
@@ -62,4 +66,6 @@ path = "template.rs"
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
 graphlib = "0.6.3"
+ndarray = { version = "0.15.4", features = ["rayon", "blas", "matrixmultiply-threading"] }
+#ndarray-linalg = { version = "0.14.1", features = ["openblas-system"] }
 ureq = "2.3.1"

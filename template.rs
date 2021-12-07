@@ -2,6 +2,8 @@
 
 use anyhow::{anyhow, Result};
 use graphlib::{Graph, VertexId};
+use ndarray::prelude::*;
+use ndarray::{ArcArray2, parallel::par_azip};
 use std::cmp::{min, max};
 use std::convert::{TryFrom, TryInto};
 use std::collections::*;
