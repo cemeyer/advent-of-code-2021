@@ -248,3 +248,34 @@ mod tests3 {
         assert_eq!(histo_explode(&myhisto).copied().collect::<Vec<_>>(), [1,1,1,2,3,4]);
     }
 }
+
+/// Brute-force meeting point optimizer.
+///
+/// Given some `domain` of eligible meeting points, some `items` in that domain, and a
+/// `cost(destination, source)` function evaluating the cost of moving one item to a location, find
+/// the single lowest cost meeting point in the domain via brute-force search.
+///
+/// Returns `(best_point, cost)`.
+///
+/// Time is `O(N * M * C)`, where `N` is the size of the domain, `M` is the number of items, and
+/// `C` is hopefully `1`.
+pub fn best_meeting_point<'a, 'b, D, DI, II, C>(domain: DI, items: II, cost: C) -> (D, u64)
+where
+    D: 'a + 'b + Clone,
+    DI: Iterator<Item = D>,
+    II: Iterator<Item = &'a D> + Clone,
+    C: Fn(&D, &D) -> u64,
+{
+    let mut bestsco = u64::MAX;
+    let mut best = None;
+
+    for pt in domain {
+        let candidate_cost: u64 = items.clone().map(|item| cost(&pt, item)).sum();
+        if candidate_cost < bestsco {
+            bestsco = candidate_cost;
+            best = Some(pt);
+        }
+    }
+
+    (best.unwrap(), bestsco)
+}

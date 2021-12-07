@@ -17,19 +17,11 @@ fn part1(input: &str) -> u64 {
     let maxx = *xs.iter().max().unwrap();
     dbg!(minx, maxx);
 
-    let mut bestcost = u64::MAX;
-    let mut bestcentroid = u16::MAX;
+    let (_bestcentroid, bestcost) = aoc::best_meeting_point(minx..=maxx, xs.iter(), |dest, src| {
+        i64::abs((*dest as i64) - (*src as i64)) as u64
+    });
 
-    for candidate in minx..=maxx {
-        let cost = xs.iter()
-            .map(|x| i64::abs((*x as i64) - candidate as i64) as u64)
-            .sum();
-        if cost < bestcost {
-            //dbg!(cost, candidate);
-            bestcost = cost;
-            bestcentroid = candidate;
-        }
-    }
+    assert_eq!(bestcost, 340987);
 
     bestcost
 }
