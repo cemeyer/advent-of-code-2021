@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_imports, unused_parens, unused_variables)]
+#![allow(dead_code, unused_assignments, unused_imports, unused_parens, unused_variables)]
 
 use anyhow::{anyhow, Result};
 use graphlib::{Graph, VertexId};
@@ -17,7 +17,7 @@ fn main() -> Result<()> {
 
     let answ1 = part1(data);
     dbg!(&answ1);
-    puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
+    //puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
 
     //let answ2 = part2(data);
     //dbg!(&answ2);
