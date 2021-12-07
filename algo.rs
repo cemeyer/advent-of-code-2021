@@ -259,12 +259,13 @@ mod tests3 {
 ///
 /// Time is `O(N * M * C)`, where `N` is the size of the domain, `M` is the number of items, and
 /// `C` is hopefully `1`.
-pub fn best_meeting_point<'a, 'b, D, DI, II, C>(domain: DI, items: II, cost: C) -> (D, u64)
+pub fn best_meeting_point<'a, D, DI, Itm, II, C>(domain: DI, items: II, cost: C) -> (D, u64)
 where
-    D: 'a + 'b + Clone,
+    D: 'a + Clone,
     DI: Iterator<Item = D>,
-    II: Iterator<Item = &'a D> + Clone,
-    C: Fn(&D, &D) -> u64,
+    Itm: 'a,
+    II: Iterator<Item = Itm> + Clone,
+    C: Fn(&D, Itm) -> u64,
 {
     let mut bestsco = u64::MAX;
     let mut best = None;
