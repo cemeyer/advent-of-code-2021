@@ -188,15 +188,15 @@ mod tests2 {
 /// search space.
 pub fn histo<'a, T, C, I>(vals: I) -> BTreeMap<T, C>
 where
-    T: 'a + Copy + Ord,
+    T: 'a + Ord,
     C: std::ops::AddAssign + TryFrom<usize> + Copy,
-    I: Iterator<Item = &'a T>,
+    I: Iterator<Item = T>,
 {
     let mut res: BTreeMap<T, C> = BTreeMap::new();
     let zero = C::try_from(0).ok().unwrap();
     let one = C::try_from(1).ok().unwrap();
     for v in vals {
-        *res.entry(*v).or_insert(zero) += one;
+        *res.entry(v).or_insert(zero) += one;
     }
     res
 }
@@ -230,7 +230,7 @@ mod tests3 {
 
     #[test]
     fn histo_basic() {
-        let mut myhisto: BTreeMap<_, i64> = histo([1,2,3,4,1,1].iter());
+        let mut myhisto: BTreeMap<_, i64> = histo([1,2,3,4,1,1].iter().copied());
         assert_eq!(histo_explode(&myhisto).copied().collect::<Vec<_>>(), [1,1,1,2,3,4]);
         println!("{:?}", &myhisto);
 
