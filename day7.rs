@@ -8,17 +8,19 @@ use std::collections::*;
 use std::hash::Hash;
 
 fn part1(input: &str) -> u64 {
-    let xs = input.trim_end()
+    let histo = aoc::histo(
+        input.trim_end()
         .split(',')
-        .map(|w| w.parse::<u16>().unwrap())
-        .collect::<Vec<_>>();
+        .map(|w| w.parse::<u16>().unwrap()));
 
-    let minx = *xs.iter().min().unwrap();
-    let maxx = *xs.iter().max().unwrap();
+    let minx = histo.keys().cloned().next().unwrap();
+    let maxx = histo.keys().rev().cloned().next().unwrap();
     dbg!(minx, maxx);
 
-    let (_bestcentroid, bestcost) = aoc::best_meeting_point(minx..=maxx, xs.iter(), |dest, src| {
-        i64::abs((*dest as i64) - (*src as i64)) as u64
+    let (_bestcentroid, bestcost) = aoc::best_meeting_point(minx..=maxx, histo.iter(), |dest, src| {
+        let (src, num_crabs) = src;
+        let unit_cost = i64::abs((*dest as i64) - (*src as i64)) as u64;
+        unit_cost * num_crabs
     });
 
     assert_eq!(bestcost, 340987);
