@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Result};
 use graphlib::{Graph, VertexId};
 use std::cmp::{min, max};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::collections::*;
 use std::hash::Hash;
 

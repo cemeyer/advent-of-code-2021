@@ -2,8 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use graphlib::{Graph, VertexId};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::collections::*;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 /// Unidirectional graph representation for finding disjoint sets / connected components.
@@ -176,5 +177,74 @@ mod tests2 {
 
         assert_eq!(connected_values.len(), 1);
         assert_eq!(connected_values[0].len(), 4);
+    }
+}
+
+/// Convert an iterator of values to a histogram of those value frequencies.
+///
+/// Generic in type of values and type of counter.
+///
+/// BTreeMaps form hashable histograms, so these can be used as keys in, e.g., hashsets of explored
+/// search space.
+pub fn histo<'a, T, C, I>(vals: I) -> BTreeMap<T, C>
+where
+    T: 'a + Copy + Ord,
+    C: std::ops::AddAssign + TryFrom<usize> + Copy,
+    I: Iterator<Item = &'a T>,
+{
+    let mut res: BTreeMap<T, C> = BTreeMap::new();
+    let zero = C::try_from(0).ok().unwrap();
+    let one = C::try_from(1).ok().unwrap();
+    for v in vals {
+        *res.entry(*v).or_insert(zero) += one;
+    }
+    res
+}
+
+/// Update a histogram by adding `n` elements `elm`.
+#[inline]
+pub fn histo_count_n<T, C>(histo: &mut BTreeMap<T, C>, elm: T, n: C)
+where
+    T: Copy + Ord,
+    C: std::ops::AddAssign + TryFrom<usize> + Copy,
+{
+    *histo.entry(elm).or_insert(C::try_from(0).ok().unwrap()) += n;
+}
+
+/// Expand histogram to an ordered list.
+pub fn histo_explode<T, C>(histo: &BTreeMap<T, C>) -> impl Iterator<Item = &T> + Debug
+where
+    T: Copy + Ord + Debug,
+    C: std::ops::AddAssign + TryFrom<usize> + Copy + Debug + TryInto<usize>,
+{
+    histo.iter()
+        .map(|(elm, count)| {
+            std::iter::repeat(elm).take((*count).try_into().ok().unwrap())
+        })
+        .flatten()
+}
+
+#[cfg(test)]
+mod tests3 {
+    use super::*;
+
+    #[test]
+    fn histo_basic() {
+        let mut myhisto: BTreeMap<_, i64> = histo([1,2,3,4,1,1].iter());
+        assert_eq!(histo_explode(&myhisto).copied().collect::<Vec<_>>(), [1,1,1,2,3,4]);
+        println!("{:?}", &myhisto);
+
+        assert_eq!(myhisto[&1], 3);
+        assert_eq!(myhisto[&2], 1);
+        assert_eq!(myhisto[&3], 1);
+        assert_eq!(myhisto[&4], 1);
+
+        histo_count_n(&mut myhisto, 4, 3);
+        assert_eq!(myhisto[&4], 4);
+        assert_eq!(histo_explode(&myhisto).copied().collect::<Vec<_>>(), [1,1,1,2,3,4,4,4,4]);
+
+        histo_count_n(&mut myhisto, 4, -3);
+        assert_eq!(myhisto[&4], 1);
+        assert_eq!(histo_explode(&myhisto).copied().collect::<Vec<_>>(), [1,1,1,2,3,4]);
     }
 }
