@@ -28,43 +28,33 @@ fn part1(input: &str) -> u64 {
     bestcost
 }
 
-fn gencosttable() -> Vec<u64> {
-    let mut res = vec![0u64; 2000]; //1949);
-    res[1] = 1;
-    for i in 2..2000 {
-        res[i as usize] = res[i as usize - 1] + i;
-    }
-    res
-}
-
 fn part2(input: &str) -> u64 {
-    let xs = input.trim_end()
+    let histo = aoc::histo(
+        input.trim_end()
         .split(',')
-        .map(|w| w.parse::<u16>().unwrap())
-        .collect::<Vec<_>>();
+        .map(|w| w.parse::<u16>().unwrap()));
 
-    let minx = *xs.iter().min().unwrap();
-    let maxx = *xs.iter().max().unwrap();
+    let minx = histo.keys().cloned().next().unwrap();
+    let maxx = histo.keys().rev().cloned().next().unwrap();
     dbg!(minx, maxx);
 
-    let mut bestcost = u64::MAX;
-    let mut bestcentroid = u16::MAX;
-
-    let costs = gencosttable();
-
-    for candidate in minx..=maxx {
-        let cost = xs.iter()
-            .map(|x| {
-                costs[i64::abs((*x as i64) - candidate as i64) as usize]
-            })
-            .sum();
-        if cost < bestcost {
-            //dbg!(cost, candidate);
-            bestcost = cost;
-            bestcentroid = candidate;
+    let costs = {
+        let max = maxx as usize + 1;
+        let mut res = vec![0u64; max];
+        res[1] = 1;
+        for i in 2..max {
+            res[i] = res[i - 1] + i as u64;
         }
-    }
+        res
+    };
 
+    let (_bestcentroid, bestcost) = aoc::best_meeting_point(minx..=maxx, histo.iter(), |dest, src| {
+        let (src, num_crabs) = src;
+        let unit_cost = costs[i64::abs((*dest as i64) - (*src as i64)) as usize];
+        unit_cost * num_crabs
+    });
+
+    assert_eq!(bestcost, 96987874);
     bestcost
 }
 
