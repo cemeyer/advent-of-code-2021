@@ -280,3 +280,49 @@ where
 
     (best.unwrap(), bestsco)
 }
+
+#[cfg(test)]
+mod tests4 {
+    use super::*;
+
+    #[test]
+    fn meeting_point_1d() {
+        let crabs = [1i64, 3, 5];
+        let domain = 1i64..=5;
+
+        let (pt, sco) = best_meeting_point(domain, crabs.iter(), |pos, crabpos| {
+            i64::abs(*pos - crabpos) as u64
+        });
+        assert_eq!(pt, 3);
+        assert_eq!(sco, 4);
+    }
+
+    #[test]
+    fn meeting_point_2d() {
+        let (vertices, mut graph) = grid_2d_graph(5, 5);
+
+        // [c#   ]
+        // [ # # ]
+        // [ #c# ]
+        // [ # # ]
+        // [   #c]
+        for r in 0..4 {
+            graph.remove(&vertices[r][1]);
+            graph.remove(&vertices[r + 1][3]);
+        }
+
+        let crabs = [&vertices[0][0], &vertices[2][2], &vertices[4][4]];
+        dbg!(crabs);
+
+        let (pt, sco) = best_meeting_point(graph.vertices(), crabs.iter(), |candidate, crabpos| {
+            let pathlen = graph.dijkstra(crabpos, candidate).count();
+            assert_ne!(pathlen, 0);
+            // path includes starting point
+            let distance = pathlen - 1;
+            distance as u64
+        });
+
+        assert_eq!(pt, &vertices[2][2]);
+        assert_eq!(sco, 16);
+    }
+}
