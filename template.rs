@@ -8,14 +8,18 @@ use std::cmp::{min, max};
 use std::convert::{TryFrom, TryInto};
 use std::collections::*;
 use std::hash::Hash;
+use std::iter::FromIterator;
 
 fn part1(input: &str) -> i64 {
-    1
+    0
 }
 
 fn main() -> Result<()> {
     let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
     let data = puzzle.get_data()?;
+    let lines = data.lines().collect::<Vec<_>>();
+    for line in lines.iter() {
+    }
 
     let answ1 = part1(data);
     dbg!(&answ1);
