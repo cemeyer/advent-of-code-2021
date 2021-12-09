@@ -281,6 +281,38 @@ where
     (best.unwrap(), bestsco)
 }
 
+/// Brute-force meeting point optimizer, point-only cost function.
+///
+/// Given some `domain` of eligible meeting points, some `items` in that domain, and a
+/// `cost(destination)` function evaluating the cost of moving one item to a location, find the
+/// single lowest cost meeting point in the domain via brute-force search.
+///
+/// Returns `(best_point, cost)`.
+///
+/// Time is `O(N * M * C)`, where `N` is the size of the domain, `M` is the number of items, and
+/// `C` is ideally `O(N * M)` or better.
+pub fn best_meeting_point_alt<'a, D, DI, Itm, II, C>(domain: DI, items: II, cost: C) -> (D, u64)
+where
+    D: 'a + Clone,
+    DI: Iterator<Item = D>,
+    Itm: 'a,
+    II: Iterator<Item = Itm> + Clone,
+    C: Fn(&D) -> u64,
+{
+    let mut bestsco = u64::MAX;
+    let mut best = None;
+
+    for pt in domain {
+        let candidate_cost = cost(&pt);
+        if candidate_cost < bestsco {
+            bestsco = candidate_cost;
+            best = Some(pt);
+        }
+    }
+
+    (best.unwrap(), bestsco)
+}
+
 #[cfg(test)]
 mod tests4 {
     use super::*;
@@ -324,5 +356,41 @@ mod tests4 {
 
         assert_eq!(pt, &vertices[2][2]);
         assert_eq!(sco, 16);
+    }
+
+    // Only run Dijkstra's once per candidate (single-source shortest path)
+    #[test]
+    fn meeting_point_2d_alt() {
+        let (vertices, mut graph) = grid_2d_graph(5, 5);
+
+        // [c#   ]
+        // [ # # ]
+        // [ #c# ]
+        // [ # # ]
+        // [   #c]
+        for r in 0..4 {
+            graph.remove(&vertices[r][1]);
+            graph.remove(&vertices[r + 1][3]);
+        }
+
+        let crabs = [&vertices[0][0], &vertices[2][2], &vertices[4][4]];
+        dbg!(crabs);
+
+        let (pt, sco) = best_meeting_point_alt(graph.vertices(), crabs.iter(), |candidate| {
+            let mut total = 0;
+            let sssp = graphlib::iterators::Dijkstra::new(&graph, candidate).unwrap();
+
+            for crabpos in crabs.iter() {
+                // XXX: get_distance() doesn't work because default weight is 0.0, rather than more
+                // sane 1.0.
+                //let dist = sssp.get_distance(crabpos).unwrap().round() as u64;
+                let dist = sssp.clone().get_path_to(crabpos).unwrap().count() as u64 - 1;
+                total += dist;
+            }
+            total
+        });
+
+        assert_eq!(sco, 16);
+        assert_eq!(pt, &vertices[2][2]);
     }
 }
