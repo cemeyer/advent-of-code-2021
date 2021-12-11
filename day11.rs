@@ -10,38 +10,36 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-fn step(grid: &mut Vec<Vec<u8>>) -> HashSet<(usize, usize)> {
+fn step(grid: &mut Array2<u8>) -> HashSet<(usize, usize)> {
     let mut flashes = HashSet::new();
 
-    for (r, row) in grid.iter_mut().enumerate() {
-        for (c, octopus) in row.iter_mut().enumerate() {
-            *octopus += 1;
-        }
+    for octopus in grid.iter_mut() {
+        *octopus += 1;
     }
 
     let mut any = true;
     while any {
         any = false;
-        for r in 0..grid.len() {
-            for c in 0..grid[0].len() {
-                let octo = grid[r][c];
+        for r in 0..grid.nrows() {
+            for c in 0..grid.ncols() {
+                let octo = grid[[r, c]];
                 if octo > 9 && !flashes.contains(&(r, c)) {
                     any = true;
                     flashes.insert((r, c));
                     for dr in -1i64..=1 {
                         let rr = r as i64 + dr;
-                        if rr < 0 || rr >= grid.len() as i64 {
+                        if rr < 0 || rr >= grid.nrows() as i64 {
                             continue;
                         }
                         for dc in -1i64..=1 {
                             let cc = c as i64 +dc;
-                            if cc < 0 || cc >= grid[0].len() as i64 {
+                            if cc < 0 || cc >= grid.ncols() as i64 {
                                 continue;
                             }
                             if dc == 0 && dr == 0 {
                                 continue;
                             }
-                            grid[rr as usize][cc as usize] += 1;
+                            grid[[rr as usize, cc as usize]] += 1;
                         }
                     }
                 }
@@ -49,18 +47,16 @@ fn step(grid: &mut Vec<Vec<u8>>) -> HashSet<(usize, usize)> {
         }
     }
 
-    for (r, row) in grid.iter_mut().enumerate() {
-        for (c, octo) in row.iter_mut().enumerate() {
-            if *octo > 9 {
-                *octo = 0;
-            }
+    for octo in grid.iter_mut() {
+        if *octo > 9 {
+            *octo = 0;
         }
     }
 
     flashes
 }
 
-fn part1(grid: &mut Vec<Vec<u8>>) -> usize {
+fn part1(grid: &mut Array2<u8>) -> usize {
     let mut totalflash = 0;
     for _ in 0..100 {
         let flashes = step(grid);
@@ -70,7 +66,7 @@ fn part1(grid: &mut Vec<Vec<u8>>) -> usize {
     totalflash
 }
 
-fn part2(grid: &mut Vec<Vec<u8>>) -> u64 {
+fn part2(grid: &mut Array2<u8>) -> u64 {
     let mut n = 0;
     loop {
         let flashes = step(grid);
@@ -98,9 +94,12 @@ fn main() -> Result<()> {
 //4846848554
 //5283751526";
     let lines = data.lines().collect::<Vec<_>>();
-    let grid = lines.iter().map(|line| {
-        line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
-    }).collect::<Vec<_>>();
+    let mut grid = Array::zeros((10, 10));
+    for (row, line) in lines.iter().enumerate() {
+        for (col, c) in line.chars().enumerate() {
+            grid[[row, col]] = c.to_digit(10).unwrap() as u8;
+        }
+    }
 
     let mut grid1 = grid.clone();
     let answ1 = part1(&mut grid1);
