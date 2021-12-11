@@ -10,39 +10,38 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-fn step(grid: &Vec<Vec<u8>>) -> (Vec<Vec<u8>>, HashSet<(usize, usize)>) {
-    let mut newgrid = grid.clone();
+fn step(grid: &mut Vec<Vec<u8>>) -> HashSet<(usize, usize)> {
     let mut flashes = HashSet::new();
 
-    for (r, row) in grid.iter().enumerate() {
-        for (c, octopus) in row.iter().enumerate() {
-            newgrid[r][c] = *octopus + 1;
+    for (r, row) in grid.iter_mut().enumerate() {
+        for (c, octopus) in row.iter_mut().enumerate() {
+            *octopus += 1;
         }
     }
 
     let mut any = true;
     while any {
         any = false;
-        for r in 0..newgrid.len() {
-            for c in 0..newgrid[0].len() {
-                let octo = newgrid[r][c];
+        for r in 0..grid.len() {
+            for c in 0..grid[0].len() {
+                let octo = grid[r][c];
                 if octo > 9 && !flashes.contains(&(r, c)) {
                     any = true;
                     flashes.insert((r, c));
                     for dr in -1i64..=1 {
                         let rr = r as i64 + dr;
-                        if rr < 0 || rr >= newgrid.len() as i64 {
+                        if rr < 0 || rr >= grid.len() as i64 {
                             continue;
                         }
                         for dc in -1i64..=1 {
                             let cc = c as i64 +dc;
-                            if cc < 0 || cc >= newgrid[0].len() as i64 {
+                            if cc < 0 || cc >= grid[0].len() as i64 {
                                 continue;
                             }
                             if dc == 0 && dr == 0 {
                                 continue;
                             }
-                            newgrid[rr as usize][cc as usize] += 1;
+                            grid[rr as usize][cc as usize] += 1;
                         }
                     }
                 }
@@ -50,7 +49,7 @@ fn step(grid: &Vec<Vec<u8>>) -> (Vec<Vec<u8>>, HashSet<(usize, usize)>) {
         }
     }
 
-    for (r, row) in newgrid.iter_mut().enumerate() {
+    for (r, row) in grid.iter_mut().enumerate() {
         for (c, octo) in row.iter_mut().enumerate() {
             if *octo > 9 {
                 *octo = 0;
@@ -58,27 +57,23 @@ fn step(grid: &Vec<Vec<u8>>) -> (Vec<Vec<u8>>, HashSet<(usize, usize)>) {
         }
     }
 
-    (newgrid, flashes)
+    flashes
 }
 
-fn part1(input: &Vec<Vec<u8>>) -> usize {
-    let mut grid = input.clone();
+fn part1(grid: &mut Vec<Vec<u8>>) -> usize {
     let mut totalflash = 0;
     for _ in 0..100 {
-        let (newgrid, flashes) = step(&grid);
-        grid = newgrid;
+        let flashes = step(grid);
         totalflash += flashes.len();
     }
 
     totalflash
 }
 
-fn part2(input: &Vec<Vec<u8>>) -> u64 {
-    let mut grid = input.clone();
+fn part2(grid: &mut Vec<Vec<u8>>) -> u64 {
     let mut n = 0;
     loop {
-        let (newgrid, flashes) = step(&grid);
-        grid = newgrid;
+        let flashes = step(grid);
         n += 1;
         if flashes.len() == 100 {
             break;
@@ -105,14 +100,18 @@ fn main() -> Result<()> {
     let lines = data.lines().collect::<Vec<_>>();
     let grid = lines.iter().map(|line| {
         line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
-    }).collect();
+    }).collect::<Vec<_>>();
 
-    //let answ1 = part1(&grid);
-    //dbg!(&answ1);
+    let mut grid1 = grid.clone();
+    let answ1 = part1(&mut grid1);
+    dbg!(&answ1);
+    assert_eq!(answ1, 1747);
     //puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
 
-    let answ2 = part2(&grid);
+    let mut grid2 = grid.clone();
+    let answ2 = part2(&mut grid2);
     dbg!(&answ2);
+    assert_eq!(answ2, 505);
     //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
 
     Ok(())
