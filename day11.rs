@@ -10,7 +10,7 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-fn step(grid: &mut Array2<u8>) -> HashSet<(usize, usize)> {
+fn step(grid: &mut Array2<u8>) -> usize {
     let mut flashes = HashSet::new();
 
     for octopus in grid.iter_mut() {
@@ -53,14 +53,14 @@ fn step(grid: &mut Array2<u8>) -> HashSet<(usize, usize)> {
         }
     }
 
-    flashes
+    flashes.len()
 }
 
 fn part1(grid: &mut Array2<u8>) -> usize {
     let mut totalflash = 0;
     for _ in 0..100 {
         let flashes = step(grid);
-        totalflash += flashes.len();
+        totalflash += flashes;
     }
 
     totalflash
@@ -71,7 +71,7 @@ fn part2(grid: &mut Array2<u8>) -> u64 {
     loop {
         let flashes = step(grid);
         n += 1;
-        if flashes.len() == 100 {
+        if flashes == 100 {
             break;
         }
     }
