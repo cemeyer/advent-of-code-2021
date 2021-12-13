@@ -11,13 +11,13 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-fn part1(input: &Vec<Vec<u8>>) -> i64 {
+fn part1(input: &ParseResult) -> i64 {
     0
 }
 
-fn main() -> Result<()> {
-    let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
-    let data = puzzle.get_data()?;
+type ParseResult<'a> = Vec<&'a str>;
+
+fn parse(data: &str) -> ParseResult {
     let lines = data.lines().collect::<Vec<_>>();
     //let grid = lines.iter().map(|line| {
     //    line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
@@ -30,14 +30,20 @@ fn main() -> Result<()> {
     //        matrix[[r, c]] = *val;
     //    }
     //}
+    lines
+}
 
-    let answ1 = part1(&grid);
+fn main() -> Result<()> {
+    let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
+    let data = puzzle.get_data()?;
+    let parsed = parse(data);
+
+    let answ1 = part1(&parsed);
     dbg!(&answ1);
-    //puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
-
-    //let answ2 = part2(&grid);
+    //let answ2 = part2(&parsed);
     //dbg!(&answ2);
-    //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
 
+    //puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
+    //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
     Ok(())
 }
