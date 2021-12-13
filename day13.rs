@@ -12,43 +12,42 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 // up for horizontal 'y' folds, left for vertical 'x' folds
-fn do_fold(points: &HashSet<(u16, u16)>, fold: &(u8, u16)) -> HashSet<(u16, u16)> {
-    let mut res = HashSet::new();
+fn do_fold(points: &mut HashSet<(u16, u16)>, fold: &(u8, u16)) {
     let (foldaxis, foldval) = fold;
-    for (x, y) in points.iter().cloned() {
+    // Ideally this would use HashSet::drain_filter(), but the interface is not stabilized yet.
+    for (x, y) in points.iter().cloned().collect::<Vec<_>>() {
         match foldaxis {
             b'y' => {
                 assert_ne!(y, *foldval); // no dots on folds
                 if y < *foldval {
-                    res.insert((x, y));
                     continue;
                 }
-                res.insert((x, 2 * foldval - y));
+                points.remove(&(x, y));
+                points.insert((x, 2 * foldval - y));
             }
             b'x' => {
                 assert_ne!(x, *foldval); // no dots on folds
                 if x < *foldval {
-                    res.insert((x, y));
                     continue;
                 }
-                res.insert((2 * foldval - x, y));
+                points.remove(&(x, y));
+                points.insert((2 * foldval - x, y));
             }
             _ => { unreachable!(); }
         }
     }
-
-    res
 }
 
 fn part1(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) -> usize {
-    let points = do_fold(points, &folds[0]);
+    let mut points = points.clone();
+    do_fold(&mut points, &folds[0]);
     points.len()
 }
 
-fn part2(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) -> Array2<u8> {
+fn part2(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) {
     let mut points = points.clone();
     for fold in folds {
-        points = do_fold(&points, fold);
+        do_fold(&mut points, fold);
     }
     let mut maxx = 0;
     let mut maxy = 0;
@@ -56,12 +55,16 @@ fn part2(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) -> Array2<u8> {
         maxx = max(maxx, *x);
         maxy = max(maxy, *y);
     }
-    let mut grid = Array::zeros((maxy as usize +1, maxx as usize +1));
-    for (x, y) in points.iter().cloned() {
-        grid[[y as usize, x as usize]] = 1;
+    for y in 0..=maxy {
+        for x in 0..=maxx {
+            print!("{}", if points.contains(&(x as u16, y as u16)) {
+                '#'
+            } else {
+                ' '
+            });
+        }
+        println!("");
     }
-
-    grid
 }
 
 
@@ -105,8 +108,7 @@ fn main() -> Result<()> {
 
     let answ1 = part1(&pts, &folds);
     dbg!(&answ1);
-    let answ2 = part2(&pts, &folds);
-    println!("{:?}", &answ2);
+    part2(&pts, &folds);
 
     Ok(())
 }
