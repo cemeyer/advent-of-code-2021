@@ -19,9 +19,9 @@ fn main() -> Result<()> {
     let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
     let data = puzzle.get_data()?;
     let lines = data.lines().collect::<Vec<_>>();
-    let grid = lines.iter().map(|line| {
-        line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
-    }).collect::<Vec<_>>();
+    //let grid = lines.iter().map(|line| {
+    //    line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
+    //}).collect::<Vec<_>>();
     //let nrows = grid.len();
     //let ncols = grid[0].len();
     //let mut matrix = Array::zeros((nrows, ncols));

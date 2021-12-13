@@ -12,12 +12,12 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 // up for horizontal 'y' folds, left for vertical 'x' folds
-fn do_fold(points: &HashSet<(u16, u16)>, fold: &(char, u16)) -> HashSet<(u16, u16)> {
+fn do_fold(points: &HashSet<(u16, u16)>, fold: &(u8, u16)) -> HashSet<(u16, u16)> {
     let mut res = HashSet::new();
     let (foldaxis, foldval) = fold;
     for (x, y) in points.iter().cloned() {
         match foldaxis {
-            'y' => {
+            b'y' => {
                 assert_ne!(y, *foldval); // no dots on folds
                 if y < *foldval {
                     res.insert((x, y));
@@ -25,7 +25,7 @@ fn do_fold(points: &HashSet<(u16, u16)>, fold: &(char, u16)) -> HashSet<(u16, u1
                 }
                 res.insert((x, 2 * foldval - y));
             }
-            'x' => {
+            b'x' => {
                 assert_ne!(x, *foldval); // no dots on folds
                 if x < *foldval {
                     res.insert((x, y));
@@ -40,12 +40,12 @@ fn do_fold(points: &HashSet<(u16, u16)>, fold: &(char, u16)) -> HashSet<(u16, u1
     res
 }
 
-fn part1(points: &HashSet<(u16, u16)>, folds: &Vec<(char, u16)>) -> usize {
+fn part1(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) -> usize {
     let points = do_fold(points, &folds[0]);
     points.len()
 }
 
-fn part2(points: &HashSet<(u16, u16)>, folds: &Vec<(char, u16)>) -> Array2<u8> {
+fn part2(points: &HashSet<(u16, u16)>, folds: &Vec<(u8, u16)>) -> Array2<u8> {
     let mut points = points.clone();
     for fold in folds {
         points = do_fold(&points, fold);
@@ -90,37 +90,21 @@ fn main() -> Result<()> {
 //
 //fold along y=7
 //fold along x=5";
-    let lines = data.lines().collect::<Vec<_>>();
-    let mut maxx = 0;
-    let mut maxy = 0;
+    let (data_pts, data_folds) = data.split_once("\n\n").unwrap();
     let mut pts = HashSet::new();
-    let mut folds = Vec::new();
-    let mut line_iter = lines.iter();
-    loop {
-        let next = line_iter.next().unwrap();
-        if next.len() == 0 {
-            break;
-        }
-        let mut nums = next.split(",").map(|x| x.parse::<u16>().unwrap());
-        let x = nums.next().unwrap();
-        let y = nums.next().unwrap();
-        maxx = max(maxx, x);
-        maxy = max(maxy, y);
-        pts.insert((x, y));
+    for line in data_pts.lines() {
+        let (x, y) = line.split_once(',').unwrap();
+        pts.insert((x.parse::<u16>().unwrap(), y.parse::<u16>().unwrap()));
     }
-    for fold in line_iter {
-        let mut words = fold.split(' ');
-        words.next();
-        words.next();
-        let instr = words.next().unwrap();
-        let mut parts = instr.split('=');
-        let axis = parts.next().unwrap().chars().next().unwrap();
-        let value = parts.next().unwrap().parse::<u16>().unwrap();
-        folds.push((axis, value));
+    let mut folds = Vec::new();
+    for fold in data_folds.lines() {
+        let instr = fold.trim_start_matches("fold along ");
+        let (axis, value) = instr.split_once('=').unwrap();
+        folds.push((axis.as_bytes()[0], value.parse::<u16>().unwrap()));
     }
 
-    //let answ1 = part1(&pts, &folds);
-    //dbg!(&answ1);
+    let answ1 = part1(&pts, &folds);
+    dbg!(&answ1);
     let answ2 = part2(&pts, &folds);
     println!("{:?}", &answ2);
 
