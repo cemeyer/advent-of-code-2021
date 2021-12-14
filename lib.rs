@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_macros)]
+#![allow(dead_code, non_camel_case_types, unused_macros)]
 
 use anyhow::{anyhow, Context, Result};
 use std::io::ErrorKind;
@@ -356,3 +356,6 @@ macro_rules! dbg2 {
         ($($crate::dbg2!($val)),+,)
     };
 }
+
+pub type ByteString = Vec<u8>;
+pub type byte = u8;

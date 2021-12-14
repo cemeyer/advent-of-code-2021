@@ -11,9 +11,9 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-use aoc::dbg2;
+use aoc::{dbg2, byte, ByteString};
 
-fn do_step(inp: &[u8], rules: &HashMap<Vec<u8>, u8>) -> Vec<u8> {
+fn do_step(inp: &[u8], rules: &HashMap<ByteString, u8>) -> ByteString {
     let mut res = Vec::new();
 
     for pair in inp.windows(2) {
@@ -21,7 +21,6 @@ fn do_step(inp: &[u8], rules: &HashMap<Vec<u8>, u8>) -> Vec<u8> {
         if let Some(blah) = rules.get(pair) {
             res.push(*blah);
         }
-        //res.push(pair[1]);
     }
     res.push(inp[inp.len() - 1]);
 
@@ -57,7 +56,7 @@ fn part1(input: &ParseResult) -> i64 {
 }
 
 // Revised step function using a histogram of pairs.
-fn do_step2(inp: &HashMap<Vec<u8>, u64>, rules: &HashMap<Vec<u8>, u8>) -> HashMap<Vec<u8>, u64> {
+fn do_step2(inp: &HashMap<ByteString, u64>, rules: &HashMap<ByteString, u8>) -> HashMap<ByteString, u64> {
     let mut res = HashMap::new();
 
     for (pair, cnt) in inp.iter() {
@@ -129,7 +128,7 @@ fn part2(input: &ParseResult) -> u64 {
     mct_c_cor - lct_c_cor
 }
 
-type ParseResult = (Vec<u8>, HashMap<Vec<u8>, u8>);
+type ParseResult = (ByteString, HashMap<ByteString, u8>);
 
 fn parse(data: &str) -> ParseResult {
     let (template, insertion) = data.split_once("\n\n").unwrap();
@@ -165,10 +164,12 @@ fn main() -> Result<()> {
 //CN -> C";
     let parsed = parse(data);
 
-    //let answ1 = part1(&parsed);
-    //dbg!(&answ1);
+    let answ1 = part1(&parsed);
+    dbg!(&answ1);
+    assert_eq!(answ1, 3259);
     let answ2 = part2(&parsed);
     dbg!(&answ2);
+    assert_eq!(answ2, 3459174981021);
 
     Ok(())
 }
