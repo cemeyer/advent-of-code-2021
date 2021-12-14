@@ -41,7 +41,7 @@ fn part1(input: &ParseResult) -> i64 {
     let mut lct_c = i64::MAX;
     let mut freq = HashMap::new();
     for e in state {
-        freq.insert(e, freq.get(&e).unwrap_or(&0) + 1);
+        *freq.entry(e).or_default() += 1;
     }
     for (e, cnt) in freq.iter() {
         if *cnt < lct_c {
@@ -79,26 +79,38 @@ fn do_step2(inp: &HashMap<Vec<u8>, u64>, rules: &HashMap<Vec<u8>, u8>) -> HashMa
 
 fn part2(input: &ParseResult) -> u64 {
     let (state, rules) = input;
-    let mut hashstate = HashMap::new();
     dbg2!(state);
+
+    // Transform parsed state into histogram of pairs.
+    let mut hashstate = HashMap::new();
     for pair in state.windows(2) {
         let v = pair.to_vec();
-        hashstate.insert(v, hashstate.get(pair).unwrap_or(&0) + 1);
+        *hashstate.entry(v).or_default() += 1;
     }
 
+    // Apply 40 steps.
     for i in 0..40 {
-        //dbg!(i);
         hashstate = do_step2(&hashstate, rules);
     }
+
+    // Transform pair histogram into frequency of individual elements.
+    let mut freq = HashMap::new();
+    for (e, cnt) in hashstate.iter() {
+        *freq.entry(e[0]).or_default() += cnt;
+        *freq.entry(e[1]).or_default() += cnt;
+    }
+
+    // Every element in the sequence is double-counted, except first/last.  First/last remain the
+    // same from the beginning to the end, so just add them in here.  Now every element is
+    // double-counted.
+    *freq.entry(state[0]).or_default() += 1;
+    *freq.entry(state[state.len()-1]).or_default() += 1;
+
+    // Finally, find the most and least frequent elements in the histogram.
     let mut mct = b'\0';
     let mut mct_c = 0;
     let mut lct = b'\0';
     let mut lct_c = u64::MAX;
-    let mut freq = HashMap::new();
-    for (e, cnt) in hashstate.iter() {
-        freq.insert(e[0], freq.get(&e[0]).unwrap_or(&0) + cnt);
-        freq.insert(e[1], freq.get(&e[1]).unwrap_or(&0) + cnt);
-    }
     for (e, cnt) in freq.iter() {
         if *cnt < lct_c {
             lct_c = *cnt;
@@ -109,16 +121,11 @@ fn part2(input: &ParseResult) -> u64 {
             mct = *e;
         }
     }
-    // This isn't actually correct, but I observed that my results were exactly double the expected
-    // with the sample problem and was able to manually half the counts and produce the correct
-    // solution.
-    dbg!(mct, mct_c, lct, lct_c);
-    // (They're double expected because each pair is double-counting due to overlapping windows,
-    // except for the very first and last elements, which will remain the same from the problem
-    // input.)
+
+    // Adjust for double-counting.
     let mct_c_cor = mct_c/2;
     let lct_c_cor = lct_c/2;
-    dbg!(mct_c_cor, lct_c_cor);
+    dbg!(mct as char, mct_c_cor, lct as char, lct_c_cor);
     mct_c_cor - lct_c_cor
 }
 
