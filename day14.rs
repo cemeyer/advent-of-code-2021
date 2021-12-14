@@ -11,6 +11,8 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
+use aoc::dbg2;
+
 fn do_step(inp: &[u8], rules: &HashMap<Vec<u8>, u8>) -> Vec<u8> {
     let mut res = Vec::new();
 
@@ -78,7 +80,7 @@ fn do_step2(inp: &HashMap<Vec<u8>, u64>, rules: &HashMap<Vec<u8>, u8>) -> HashMa
 fn part2(input: &ParseResult) -> u64 {
     let (state, rules) = input;
     let mut hashstate = HashMap::new();
-    dbg!(state);
+    dbg2!(state);
     for pair in state.windows(2) {
         let v = pair.to_vec();
         hashstate.insert(v, hashstate.get(pair).unwrap_or(&0) + 1);
