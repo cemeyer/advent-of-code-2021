@@ -78,13 +78,14 @@ fn do_step2(inp: &HashMap<Vec<u8>, u64>, rules: &HashMap<Vec<u8>, u8>) -> HashMa
 fn part2(input: &ParseResult) -> u64 {
     let (state, rules) = input;
     let mut hashstate = HashMap::new();
+    dbg!(state);
     for pair in state.windows(2) {
         let v = pair.to_vec();
         hashstate.insert(v, hashstate.get(pair).unwrap_or(&0) + 1);
     }
 
     for i in 0..40 {
-        dbg!(i);
+        //dbg!(i);
         hashstate = do_step2(&hashstate, rules);
     }
     let mut mct = b'\0';
@@ -110,7 +111,13 @@ fn part2(input: &ParseResult) -> u64 {
     // with the sample problem and was able to manually half the counts and produce the correct
     // solution.
     dbg!(mct, mct_c, lct, lct_c);
-    mct_c - lct_c
+    // (They're double expected because each pair is double-counting due to overlapping windows,
+    // except for the very first and last elements, which will remain the same from the problem
+    // input.)
+    let mct_c_cor = mct_c/2;
+    let lct_c_cor = lct_c/2;
+    dbg!(mct_c_cor, lct_c_cor);
+    mct_c_cor - lct_c_cor
 }
 
 type ParseResult = (Vec<u8>, HashMap<Vec<u8>, u8>);
