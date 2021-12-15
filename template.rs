@@ -11,7 +11,7 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-use aoc::dbg2;
+use aoc::{dbg2, byte, ByteString};
 
 fn part1(input: &ParseResult) -> i64 {
     0
