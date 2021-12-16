@@ -14,81 +14,117 @@ use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, ByteString};
 
-// Part 2 follows
+#[derive(Eq,PartialEq,Clone,Debug,Hash)]
+struct EvalResult {
+    value: u64,
+    sum_versions: u64,
+    parsed_length: usize, // in bits
+}
 
-// This began as a clone of part 1's parser, to avoid the risk of introducing new bugs in the part1
-// logic.  They could be combined.
-fn eval(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
+/// Evaluate the Packet tree represented by this sequence of bits, recursing to evaluate nested
+/// packets.
+fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
+    // The first three bits encode the packet _version_.
     let version = input[0..3].load_be::<u8>();
+    // The next three bits encode the packet _type ID_.
     let type_ = input[3..6].load_be::<u8>();
 
+    // Track total parsed length, in bits, so that recursive callers know how far forward to skip.
+    // XXX should instead use a consuming iterator, but whatever.
     let mut pktlen = 6;
+    let mut sumversions = version as u64;
 
     let mut cursor = &input[6..];
     let pktval = match type_ {
+        // Packets with type ID 4 represent a _literal value_.
         0x4 => {
             let mut res = 0u64;
+            // Literals are represented using a UTF8-like encoding; each nibble is prefixed with a
+            // continue bit.
             loop {
                 let next = cursor[0..5].load_be::<u8>();
                 cursor = &cursor[5..];
                 pktlen += 5;
 
+                // The nibbles are MSB.
                 res = res << 4;
                 res |= (next & 0xf) as u64;
 
+                // Check the continue bit.
                 if (next & 0x10) == 0 {
                     break;
                 }
             }
+
+            // Evaluated result of a literal value is just the value.
             res
         }
+        // Every other type of packet represents an _operator_.
         _ => {
-            // operator
+            // Shared parsing logic for operator packets: first bit determines _length type ID_.
             let lentype = cursor[0];
             cursor = &cursor[1..];
             pktlen += 1;
 
+            // Store the evaluated value of each sub-Packet (sub-expression).
             let mut subpackets = Vec::new();
 
             match lentype {
+                // If the length type ID is 0, then the next 15 bits represent the _total length in
+                // bits_ of the contained sub-packets.
                 false => {
-                    // total len of subpackets in bits
                     let tlen = cursor[0..15].load_be::<u16>();
                     cursor = &cursor[15..];
                     pktlen += 15;
 
+                    // Evaluate enough packets, recursively, to consume the appropriate number of
+                    // bits.
                     let mut sublen = 0;
                     while sublen < tlen as usize {
-                        let (subp, len) = eval(cursor);
-                        subpackets.push(subp);
+                        let eresult = eval(cursor);
+                        subpackets.push(eresult.value);
+                        sumversions += eresult.sum_versions;
+                        let len = eresult.parsed_length;
                         sublen += len;
                         pktlen += len;
                         cursor = &cursor[len..];
                     }
                     assert_eq!(sublen, tlen as usize);
                 }
+                // If the length type ID is 1, then the next 11 bits represent the _number of
+                // sub-packets immediately contained_ by this packet.
                 true => {
-                    // number of subpackets
                     let nsubpackets = cursor[0..11].load_be::<u16>();
                     cursor = &cursor[11..];
                     pktlen += 11;
 
+                    // Evaluate the appropriate number of subpackets.
                     for _i in 0..nsubpackets {
-                        let (subp, len) = eval(cursor);
-                        subpackets.push(subp);
+                        let eresult = eval(cursor);
+                        subpackets.push(eresult.value);
+                        sumversions += eresult.sum_versions;
+                        let len = eresult.parsed_length;
                         cursor = &cursor[len..];
                         pktlen += len;
                     }
                 }
             }
 
+            // Re-dispatch on type ID, for the operator subset of types (part 2).
             match type_ {
+                // Packets with type ID 0 are _sum_ packets.
                 0 => subpackets.iter().sum::<u64>(),
+                // Packets with type ID 1 are _product_ packets.
                 1 => subpackets.iter().product(),
+                // Packets with type ID 2 are _min_ packets.
                 2 => *subpackets.iter().min().unwrap(),
+                // Packets with type ID 3 are _max_ packets.
                 3 => *subpackets.iter().max().unwrap(),
+                // Packets with type ID 5 are _greater than_ packets.
                 5 => if subpackets[0] > subpackets[1] { 1 } else { 0 },
+                // Packets with type ID 6 are _less than_ packets.
                 6 => if subpackets[0] < subpackets[1] { 1 } else { 0 },
+                // Packets with type ID 7 are _equal to_ packets.
                 7 => if subpackets[0] == subpackets[1] { 1 } else { 0 },
                 _ => { unreachable!(); }
             }
@@ -96,118 +132,27 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
         }
     };
 
-    (pktval, pktlen)
+    EvalResult {
+        value: pktval,
+        sum_versions: sumversions,
+        parsed_length: pktlen,
+    }
 }
 
+// What do you get if you evaluate the expression represented by your hexadecimal-encoded BITS
+// transmission?
 fn part2(input: &ParseResult) -> u64 {
     let bits = input.view_bits::<Msb0>();
-    let (msg, _len) = eval(bits);
-    msg
+    let EvalResult { value, .. } = eval(bits);
+    value
 }
 
-// Part 1 follows
-#[derive(Debug,Clone)]
-struct Packet {
-    version: u8,
-    type_: u8,
-    value: PVal,
-}
-
-#[derive(Debug,Clone)]
-enum PVal {
-    Literal(u64),
-    Operator,
-}
-
-fn parse2(input: &BitSlice::<Msb0, u8>) -> (u64, Packet, usize) {
-    let version = input[0..3].load_be::<u8>();
-    let type_ = input[3..6].load_be::<u8>();
-
-    let mut pktlen = 6;
-    let mut version_tot = version as u64;
-
-    let mut cursor = &input[6..];
-    let pkt = match type_ {
-        0x4 => {
-            let mut res = 0u64;
-            loop {
-                let next = cursor[0..5].load_be::<u8>();
-                cursor = &cursor[5..];
-                pktlen += 5;
-
-                res = res << 4;
-                res |= (next & 0xf) as u64;
-
-                if (next & 0x10) == 0 {
-                    break;
-                }
-            }
-            Packet {
-                version,
-                type_,
-                value: PVal::Literal(res),
-            }
-        }
-        _ => {
-            // operator
-            let lentype = cursor[0];
-            cursor = &cursor[1..];
-            pktlen += 1;
-
-            match lentype {
-                false => {
-                    // total len of subpackets in bits
-                    let tlen = cursor[0..15].load_be::<u16>();
-                    cursor = &cursor[15..];
-                    pktlen += 15;
-
-                    let mut sublen = 0;
-                    while sublen < tlen as usize {
-                        let (versions, _subp, len) = parse2(cursor);
-                        version_tot += versions;
-                        sublen += len;
-                        pktlen += len;
-                        cursor = &cursor[len..];
-                    }
-                    assert_eq!(sublen, tlen as usize);
-
-                    Packet {
-                        version,
-                        type_,
-                        value: PVal::Operator,
-                    }
-                }
-                true => {
-                    // number of subpackets
-                    let subpackets = cursor[0..11].load_be::<u16>();
-                    cursor = &cursor[11..];
-                    pktlen += 11;
-
-                    for _i in 0..subpackets {
-                        let (versions, _subp, len) = parse2(cursor);
-                        version_tot += versions;
-                        cursor = &cursor[len..];
-                        pktlen += len;
-                    }
-
-                    Packet {
-                        version,
-                        type_,
-                        value: PVal::Operator,
-                    }
-                }
-            }
-        }
-    };
-
-    (version_tot, pkt, pktlen)
-}
-
+// Parse the hierarchy of the packets throughout the transmission and _add up all of the version
+// numbers_.
 fn part1(input: &ParseResult) -> u64 {
     let bits = input.view_bits::<Msb0>();
-    let (versions, _msg, _len) = parse2(bits);
-    dbg!(_msg);
-    versions
+    let EvalResult { sum_versions, .. } = eval(bits);
+    sum_versions
 }
 
 type ParseResult = Vec<u8>;

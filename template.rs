@@ -13,6 +13,8 @@ use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, ByteString};
 
+//#[derive(Eq,PartialEq,Clone,Debug,Hash)]
+
 fn part1(input: &ParseResult) -> i64 {
     0
 }
