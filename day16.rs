@@ -165,9 +165,6 @@ fn parse(data: &str) -> ParseResult {
 fn main() -> Result<()> {
     let mut puzzle = aoc::Puzzle::new(2021, 16)?;
     let data = puzzle.get_data()?;
-    //let data = "D2FE28";
-    //let data = "38006F45291200";
-    //let data = "EE00D40C823060";
     let parsed = parse(data);
 
     let answ1 = part1(&parsed);
@@ -178,4 +175,78 @@ fn main() -> Result<()> {
     assert_eq!(answ2, 1015320896946);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_p1() {
+        let data = "D2FE28";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 2021);
+        assert_eq!(eres.sum_versions, 6);
+
+        let data = "38006F45291200";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 1); // (10 < 20)
+        assert_eq!(eres.sum_versions, 9);
+
+        let data = "EE00D40C823060";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 3); // max(1,2,3)
+        assert_eq!(eres.sum_versions, 14);
+
+        let data = "8A004A801A8002F478";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.sum_versions, 16);
+
+        let data = "620080001611562C8802118E34";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.sum_versions, 12);
+
+        let data = "C0015000016115A2E0802F182340";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.sum_versions, 23);
+
+        let data = "A0016C880162017C3686B18A3D4780";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.sum_versions, 31);
+    }
+
+    #[test]
+    fn test_p2() {
+        let data = "C200B40A82";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 3);
+
+        let data = "04005AC33890";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 54);
+
+        let data = "880086C3E88112";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 7);
+
+        let data = "CE00C43D881120";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 9);
+
+        let data = "D8005AC2A8F0";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 1);
+
+        let data = "F600BC2D8F";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 0);
+
+        let data = "9C005AC2F8F0";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 0);
+
+        let data = "9C0141080250320F1802104A08";
+        let eres = eval(parse(data).view_bits::<Msb0>());
+        assert_eq!(eres.value, 1);
+    }
 }
