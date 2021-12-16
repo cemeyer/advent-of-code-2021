@@ -14,20 +14,11 @@ use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, ByteString};
 
-#[derive(Debug,Clone)]
-struct Packet {
-    version: u8,
-    type_: u8,
-    value: PVal,
-}
+// Part 2 follows
 
-#[derive(Debug,Clone)]
-enum PVal {
-    Literal(u64),
-    Operator,
-}
-
-fn eval22(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
+// This began as a clone of part 1's parser, to avoid the risk of introducing new bugs in the part1
+// logic.  They could be combined.
+fn eval(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
     let version = input[0..3].load_be::<u8>();
     let type_ = input[3..6].load_be::<u8>();
 
@@ -68,7 +59,7 @@ fn eval22(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
 
                     let mut sublen = 0;
                     while sublen < tlen as usize {
-                        let (subp, len) = eval22(cursor);
+                        let (subp, len) = eval(cursor);
                         subpackets.push(subp);
                         sublen += len;
                         pktlen += len;
@@ -83,7 +74,7 @@ fn eval22(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
                     pktlen += 11;
 
                     for _i in 0..nsubpackets {
-                        let (subp, len) = eval22(cursor);
+                        let (subp, len) = eval(cursor);
                         subpackets.push(subp);
                         cursor = &cursor[len..];
                         pktlen += len;
@@ -110,8 +101,22 @@ fn eval22(input: &BitSlice::<Msb0, u8>) -> (u64, usize) {
 
 fn part2(input: &ParseResult) -> u64 {
     let bits = input.view_bits::<Msb0>();
-    let (msg, _len) = eval22(bits);
+    let (msg, _len) = eval(bits);
     msg
+}
+
+// Part 1 follows
+#[derive(Debug,Clone)]
+struct Packet {
+    version: u8,
+    type_: u8,
+    value: PVal,
+}
+
+#[derive(Debug,Clone)]
+enum PVal {
+    Literal(u64),
+    Operator,
 }
 
 fn parse2(input: &BitSlice::<Msb0, u8>) -> (u64, Packet, usize) {
@@ -207,6 +212,7 @@ fn part1(input: &ParseResult) -> u64 {
 
 type ParseResult = Vec<u8>;
 
+// Yeah, this isn't really the parser, but usually input parsing is a smaller part of the puzzle.
 fn parse(data: &str) -> ParseResult {
     hex::decode(data.trim_end()).unwrap()
 }
