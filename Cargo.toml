@@ -69,6 +69,10 @@ path = "day14.rs"
 name = "day15"
 path = "day15.rs"
 
+[[bin]]
+name = "day16"
+path = "day16.rs"
+
 # 2017
 [[bin]]
 name = "y2017day12"
@@ -97,7 +101,9 @@ path = "template.rs"
 
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
+bitvec = "0.22.3"
 graphlib = "0.6.3"
+hex = "0.4.3"
 itertools = "0.10.3"
 ndarray = { version = "0.15.4", features = ["rayon", "blas", "matrixmultiply-threading"] }
 #ndarray-linalg = { version = "0.14.1", features = ["openblas-system"] }
