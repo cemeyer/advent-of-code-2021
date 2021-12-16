@@ -14,27 +14,58 @@ use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, ByteString};
 
+/// Cursor type to support cleaner parsing.
+struct BitCursor<'a, E: BitOrder> {
+    input: &'a BitSlice<E, u8>,
+}
+
+impl<'a, E: BitOrder> BitCursor<'a, E> {
+    pub fn new(input: &'a BitSlice<E, u8>) -> Self {
+        Self {
+            input,
+        }
+    }
+
+    /// Get the underlying bitslice at the current parse position.
+    pub fn as_slice(&self) -> &'a BitSlice<E, u8> {
+        self.input
+    }
+}
+
+impl<'a> BitCursor<'a, Msb0> {
+    /// Parse the first `bits` bits from this iterator, consuming them.  `T` should be as wide or
+    /// wider than `bits`, probably.
+    #[inline]
+    pub fn parse_be<T: bitvec::mem::BitMemory>(&mut self, bits: usize) -> T {
+        let res = self.peek_be::<T>(bits);
+        self.input = &self.input[bits..];
+        res
+    }
+
+    /// Parse the first `bits` bits from this iterator.  `T` should be as wide or wider than
+    /// `bits`, probably.
+    #[inline]
+    fn peek_be<T: bitvec::mem::BitMemory>(&self, bits: usize) -> T {
+        self.input[..bits].load_be::<T>()
+    }
+}
+
 #[derive(Eq,PartialEq,Clone,Debug,Hash)]
 struct EvalResult {
     value: u64,
     sum_versions: u64,
-    parsed_length: usize, // in bits
 }
 
 /// Evaluate the Packet tree represented by this sequence of bits, recursing to evaluate nested
 /// packets.
-fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
+fn eval(input: &mut BitCursor<Msb0>) -> EvalResult {
     // The first three bits encode the packet _version_.
-    let version = input[0..3].load_be::<u8>();
+    let version = input.parse_be::<u8>(3);
     // The next three bits encode the packet _type ID_.
-    let type_ = input[3..6].load_be::<u8>();
+    let type_ = input.parse_be::<u8>(3);
 
-    // Track total parsed length, in bits, so that recursive callers know how far forward to skip.
-    // XXX should instead use a consuming iterator, but whatever.
-    let mut pktlen = 6;
     let mut sumversions = version as u64;
 
-    let mut cursor = &input[6..];
     let pktval = match type_ {
         // Packets with type ID 4 represent a _literal value_.
         0x4 => {
@@ -42,9 +73,7 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
             // Literals are represented using a UTF8-like encoding; each nibble is prefixed with a
             // continue bit.
             loop {
-                let next = cursor[0..5].load_be::<u8>();
-                cursor = &cursor[5..];
-                pktlen += 5;
+                let next = input.parse_be::<u8>(5);
 
                 // The nibbles are MSB.
                 res = res << 4;
@@ -62,9 +91,7 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
         // Every other type of packet represents an _operator_.
         _ => {
             // Shared parsing logic for operator packets: first bit determines _length type ID_.
-            let lentype = cursor[0];
-            cursor = &cursor[1..];
-            pktlen += 1;
+            let lentype = input.parse_be::<u8>(1);
 
             // Store the evaluated value of each sub-Packet (sub-expression).
             let mut subpackets = Vec::new();
@@ -72,42 +99,31 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
             match lentype {
                 // If the length type ID is 0, then the next 15 bits represent the _total length in
                 // bits_ of the contained sub-packets.
-                false => {
-                    let tlen = cursor[0..15].load_be::<u16>();
-                    cursor = &cursor[15..];
-                    pktlen += 15;
+                0 => {
+                    let tlen = input.parse_be::<u16>(15);
+                    let future_pos = input.as_slice()[(tlen as usize)..].as_bitptr();
 
                     // Evaluate enough packets, recursively, to consume the appropriate number of
                     // bits.
-                    let mut sublen = 0;
-                    while sublen < tlen as usize {
-                        let eresult = eval(cursor);
+                    while input.as_slice().as_bitptr() != future_pos {
+                        let eresult = eval(input);
                         subpackets.push(eresult.value);
                         sumversions += eresult.sum_versions;
-                        let len = eresult.parsed_length;
-                        sublen += len;
-                        pktlen += len;
-                        cursor = &cursor[len..];
                     }
-                    assert_eq!(sublen, tlen as usize);
                 }
                 // If the length type ID is 1, then the next 11 bits represent the _number of
                 // sub-packets immediately contained_ by this packet.
-                true => {
-                    let nsubpackets = cursor[0..11].load_be::<u16>();
-                    cursor = &cursor[11..];
-                    pktlen += 11;
+                1 => {
+                    let nsubpackets = input.parse_be::<u16>(11);
 
                     // Evaluate the appropriate number of subpackets.
                     for _i in 0..nsubpackets {
-                        let eresult = eval(cursor);
+                        let eresult = eval(input);
                         subpackets.push(eresult.value);
                         sumversions += eresult.sum_versions;
-                        let len = eresult.parsed_length;
-                        cursor = &cursor[len..];
-                        pktlen += len;
                     }
                 }
+                _ => { unreachable!(); }
             }
 
             // Re-dispatch on type ID, for the operator subset of types (part 2).
@@ -135,7 +151,6 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
     EvalResult {
         value: pktval,
         sum_versions: sumversions,
-        parsed_length: pktlen,
     }
 }
 
@@ -143,7 +158,8 @@ fn eval(input: &BitSlice::<Msb0, u8>) -> EvalResult {
 // transmission?
 fn part2(input: &ParseResult) -> u64 {
     let bits = input.view_bits::<Msb0>();
-    let EvalResult { value, .. } = eval(bits);
+    let mut curs = BitCursor::new(&bits);
+    let EvalResult { value, .. } = eval(&mut curs);
     value
 }
 
@@ -151,7 +167,8 @@ fn part2(input: &ParseResult) -> u64 {
 // numbers_.
 fn part1(input: &ParseResult) -> u64 {
     let bits = input.view_bits::<Msb0>();
-    let EvalResult { sum_versions, .. } = eval(bits);
+    let mut curs = BitCursor::new(&bits);
+    let EvalResult { sum_versions, .. } = eval(&mut curs);
     sum_versions
 }
 
@@ -181,72 +198,79 @@ fn main() -> Result<()> {
 mod test {
     use super::*;
 
+    fn test_eval(inp: &str) -> EvalResult {
+        let parsed = parse(inp);
+        let bits = parsed.view_bits::<Msb0>();
+        let mut curs = BitCursor::new(&bits);
+        eval(&mut curs)
+    }
+
     #[test]
     fn test_p1() {
         let data = "D2FE28";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 2021);
         assert_eq!(eres.sum_versions, 6);
 
         let data = "38006F45291200";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 1); // (10 < 20)
         assert_eq!(eres.sum_versions, 9);
 
         let data = "EE00D40C823060";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 3); // max(1,2,3)
         assert_eq!(eres.sum_versions, 14);
 
         let data = "8A004A801A8002F478";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.sum_versions, 16);
 
         let data = "620080001611562C8802118E34";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.sum_versions, 12);
 
         let data = "C0015000016115A2E0802F182340";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.sum_versions, 23);
 
         let data = "A0016C880162017C3686B18A3D4780";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.sum_versions, 31);
     }
 
     #[test]
     fn test_p2() {
         let data = "C200B40A82";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 3);
 
         let data = "04005AC33890";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 54);
 
         let data = "880086C3E88112";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 7);
 
         let data = "CE00C43D881120";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 9);
 
         let data = "D8005AC2A8F0";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 1);
 
         let data = "F600BC2D8F";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 0);
 
         let data = "9C005AC2F8F0";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 0);
 
         let data = "9C0141080250320F1802104A08";
-        let eres = eval(parse(data).view_bits::<Msb0>());
+        let eres = test_eval(data);
         assert_eq!(eres.value, 1);
     }
 }
