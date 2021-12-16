@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_assignments, unused_imports, unused_parens, unused_variables)]
 
 use anyhow::{anyhow, Result};
+use bitvec::prelude::*;
 use graphlib::{Graph, VertexId};
 use itertools::iproduct;
 use ndarray::prelude::*;
@@ -11,7 +12,7 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-use aoc::{dbg2, byte, ByteString};
+use aoc::{dbg2, byte, BitCursor, ByteString};
 
 //#[derive(Eq,PartialEq,Clone,Debug,Hash)]
 

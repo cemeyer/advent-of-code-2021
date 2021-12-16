@@ -359,3 +359,44 @@ macro_rules! dbg2 {
 
 pub type ByteString = Vec<u8>;
 pub type byte = u8;
+
+use bitvec::field::BitField;
+use bitvec::order::{BitOrder, Msb0};
+use bitvec::slice::BitSlice;
+
+/// Cursor type to support cleaner parsing.
+pub struct BitCursor<'a, E: BitOrder> {
+    input: &'a BitSlice<E, u8>,
+}
+
+impl<'a, E: BitOrder> BitCursor<'a, E> {
+    pub fn new(input: &'a BitSlice<E, u8>) -> Self {
+        Self {
+            input,
+        }
+    }
+
+    /// Get the underlying bitslice at the current parse position.
+    #[inline]
+    pub fn as_slice(&self) -> &'a BitSlice<E, u8> {
+        self.input
+    }
+}
+
+impl<'a> BitCursor<'a, Msb0> {
+    /// Parse the first `bits` bits from this iterator, consuming them.  `T` should be as wide or
+    /// wider than `bits`, probably.
+    #[inline]
+    pub fn parse_be<T: bitvec::mem::BitMemory>(&mut self, bits: usize) -> T {
+        let res = self.peek_be::<T>(bits);
+        self.input = &self.input[bits..];
+        res
+    }
+
+    /// Parse the first `bits` bits from this iterator.  `T` should be as wide or wider than
+    /// `bits`, probably.
+    #[inline]
+    fn peek_be<T: bitvec::mem::BitMemory>(&self, bits: usize) -> T {
+        self.input[..bits].load_be::<T>()
+    }
+}
