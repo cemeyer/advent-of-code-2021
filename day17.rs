@@ -49,14 +49,38 @@ fn simulate(idx: i64, idy: i64, tzone: &ParseResult) -> i64 {
     if reached { highy } else { i64::MIN }
 }
 
+fn simulate_y(idy: i64, tzone: &ParseResult) -> Option<i64> {
+    let (_, zoney) = tzone;
+    let zoney = zoney.0..=zoney.1;
+
+    let mut y = 0;
+    let mut dy = idy;
+    let mut highy = i64::MIN;
+    let mut reached = false;
+
+    loop {
+        y = y + dy;
+
+        if y > highy { highy = y; }
+
+        if zoney.contains(&y) {
+            reached = true;
+            break;
+        }
+
+        if dy < 0 && y < *zoney.start() { break; }
+        dy -= 1;
+    }
+
+    if reached { Some(highy) } else { None }
+}
+
 fn part1(input: &ParseResult) -> i64 {
     let mut besty = i64::MIN;
-    for dx in 1..=(input.0.1) {
-        for dy in -200..5000 {
-            let y = simulate(dx, dy, &input);
-            if y > besty {
-                besty = y;
-            }
+    for dy in -200..5000 {
+        let y = simulate_y(dy, &input).unwrap_or(i64::MIN);
+        if y > besty {
+            besty = y;
         }
     }
     besty
