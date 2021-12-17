@@ -104,6 +104,8 @@ impl Puzzle {
     }
 
     pub fn new(year: u16, day: u16) -> Result<Self> {
+        // Avoid sending template day 9999 requests.
+        assert!(day <= 25);
         Ok(Self::new_internal(year, day, get_session()?, try_read_input(year, day)?))
     }
 

@@ -20,6 +20,10 @@ fn part1(input: &ParseResult) -> i64 {
     0
 }
 
+//type ParseResult = Vec<u8>;
+//type ParseResult = Vec<Vec<u8>>;
+//type ParseResult = Array2<u8>;
+//type ParseResult = (Vec<Vec<VertexId>>, Graph<usize>);
 type ParseResult<'a> = Vec<&'a str>;
 
 fn parse(data: &str) -> ParseResult {
