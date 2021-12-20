@@ -125,3 +125,8 @@ nalgebra = "0.29.0"
 ndarray = { version = "0.15.4", features = ["rayon", "blas", "matrixmultiply-threading"] }
 #ndarray-linalg = { version = "0.14.1", features = ["openblas-system"] }
 ureq = "2.3.1"
+
+# Hurts compilation times a lot.
+#[profile.release]
+#codegen-units=1
+#lto="thin"
