@@ -16,10 +16,6 @@ use aoc::{dbg2, byte, BitCursor, ByteString};
 
 //#[derive(Eq,PartialEq,Clone,Debug,Hash)]
 
-fn part1(input: &ParseResult) -> i64 {
-    0
-}
-
 //type ParseResult = Vec<u8>;
 //type ParseResult = Vec<Vec<u8>>;
 //type ParseResult = Array2<u8>;
@@ -27,8 +23,8 @@ fn part1(input: &ParseResult) -> i64 {
 type ParseResult<'a> = Vec<&'a str>;
 
 fn parse(data: &str) -> ParseResult {
-    let lines = data.lines().collect::<Vec<_>>();
-    //let grid = lines.iter().map(|line| {
+    data.lines().map(|line| line).collect::<Vec<_>>()
+    //let grid = data.lines().map(|line| {
     //    line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
     //}).collect::<Vec<_>>();
     //let nrows = grid.len();
@@ -39,7 +35,10 @@ fn parse(data: &str) -> ParseResult {
     //        matrix[[r, c]] = *val;
     //    }
     //}
-    lines
+}
+
+fn part1(input: &ParseResult) -> i64 {
+    0
 }
 
 fn main() -> Result<()> {
