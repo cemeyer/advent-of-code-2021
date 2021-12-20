@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use bitvec::prelude::*;
 use graphlib::{Graph, VertexId};
 use itertools::iproduct;
+//use nalgebra::*;
 use ndarray::prelude::*;
 use ndarray::{ArcArray2, parallel::par_azip};
 use std::cmp::{min, max};
@@ -13,6 +14,9 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, BitCursor, ByteString};
+
+//type Vec3f = Vector3<f64>;
+//type Pt3f = Point3<f64>;
 
 //#[derive(Eq,PartialEq,Clone,Debug,Hash)]
 
@@ -44,6 +48,7 @@ fn part1(input: &ParseResult) -> i64 {
 fn main() -> Result<()> {
     let mut puzzle = aoc::Puzzle::new(2021, 9999)?;
     let data = puzzle.get_data()?;
+    //let data = SAMPLE_DATA;
     let parsed = parse(data);
 
     let answ1 = part1(&parsed);
@@ -55,3 +60,6 @@ fn main() -> Result<()> {
     //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
     Ok(())
 }
+
+const SAMPLE_DATA: &str =
+"";
