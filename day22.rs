@@ -2,12 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use bitvec::prelude::*;
-use collision::*;
 use graphlib::{Graph, VertexId};
 use itertools::iproduct;
 //use nalgebra::*;
-//use kd_tree::*;
-use ncollide3d::*;
 //use ndarray::prelude::*;
 //use ndarray::{ArcArray2, parallel::par_azip};
 use std::cmp::{min, max};
@@ -95,10 +92,8 @@ fn part2(input: &ParseResult) -> u64 {
         let (ylo, yhi) = (*yr.start(), *yr.end());
         let (zlo, zhi) = (*zr.start(), *zr.end());
 
-        dbg2!(_line + 1);
-
         let next = [[xlo, ylo, zlo], [xhi, yhi, zhi]];
-        let nextvol = (xhi - xlo) * (yhi - ylo) * (zhi - zlo);
+        let nextvol = (xhi - xlo + 1) * (yhi - ylo + 1) * (zhi - zlo + 1);
 
         let mut rem = Vec::new();
         for existing in 0..boxes.len() {
@@ -109,7 +104,7 @@ fn part2(input: &ParseResult) -> u64 {
                 let olx = (overlap[0][0], overlap[1][0]);
                 let oly = (overlap[0][1], overlap[1][1]);
                 let olz = (overlap[0][2], overlap[1][2]);
-                total -= ((olx.1 - olx.0) * (oly.1 - oly.0) * (olz.1 - olz.0)) as u64;
+                total -= ((olx.1 - olx.0 + 1) * (oly.1 - oly.0 + 1) * (olz.1 - olz.0 + 1)) as u64;
             }
         }
 
@@ -124,7 +119,7 @@ fn part2(input: &ParseResult) -> u64 {
 
 fn delete_subcube(rem: &mut Vec<[[isize;3];2]>, haystack: &mut [[isize;3];2], needle: &[[isize;3];2]) {
     let haystack = {
-        let mut stack = [[0,0,0],[0,0,0]];
+        let mut stack = [[isize::MIN,isize::MIN,isize::MIN],[isize::MIN,isize::MIN,isize::MIN]];
         std::mem::swap(&mut stack, haystack);
         stack
     };
@@ -133,35 +128,35 @@ fn delete_subcube(rem: &mut Vec<[[isize;3];2]>, haystack: &mut [[isize;3];2], ne
 
     if needle[0][0] > haystack[0][0] {
         // left side cuboid "1"
-        rem.push([haystack[0], [needle[0][0], haystack[1][1], haystack[1][2]]]);
+        rem.push([haystack[0], [needle[0][0] - 1, haystack[1][1], haystack[1][2]]]);
     }
 
     if needle[1][0] < haystack[1][0] {
         // right side cuboid "2"
-        rem.push([[needle[1][0], haystack[0][1], haystack[0][2]], haystack[1]]);
+        rem.push([[needle[1][0] + 1, haystack[0][1], haystack[0][2]], haystack[1]]);
     }
 
     if needle[0][1] > haystack[0][1] {
         // bottom side cuboid "4"
         rem.push([[needle[0][0], haystack[0][1], haystack[0][2]],
-                 [needle[1][0], needle[0][1], haystack[1][2]]]);
+                 [needle[1][0], needle[0][1] - 1, haystack[1][2]]]);
     }
 
     if needle[1][1] < haystack[1][1] {
         // top side cuboid "3"
-        rem.push([[needle[0][0], needle[1][1], haystack[0][2]],
+        rem.push([[needle[0][0], needle[1][1] + 1, haystack[0][2]],
                  [needle[1][0], haystack[1][1], haystack[1][2]]]);
     }
 
     if needle[0][2] > haystack[0][2] {
         // front cuboid "5"
         rem.push([[needle[0][0], needle[0][1], haystack[0][2]],
-                 [needle[1][0], needle[1][1], needle[0][2]]]);
+                 [needle[1][0], needle[1][1], needle[0][2] - 1]]);
     }
 
     if needle[1][2] < haystack[1][2] {
         // rear cuboid "6"
-        rem.push([[needle[0][0], needle[0][1], needle[1][2]],
+        rem.push([[needle[0][0], needle[0][1], needle[1][2] + 1],
                  [needle[1][0], needle[1][1], haystack[1][2]]]);
     }
 }
@@ -176,7 +171,7 @@ fn calc_overlap(a: &[[isize;3];2], b: &[[isize;3];2]) -> Option<[[isize;3];2]> {
     let ylo = max(a[0][1], b[0][1]);
     let zlo = max(a[0][2], b[0][2]);
 
-    if xhi > xlo && yhi > ylo && zhi > zlo {
+    if xhi >= xlo && yhi >= ylo && zhi >= zlo {
         Some([[xlo, ylo, zlo], [xhi, yhi, zhi]])
     } else {
         None
@@ -189,12 +184,14 @@ fn main() -> Result<()> {
     //let data = SAMPLE_DATA;
     let parsed = parse(data);
 
-    //let answ1 = part1(&parsed);
-    //dbg!(&answ1);
-    //assert_eq!(answ1, 615700);
+    let answ1 = part1(&parsed);
+    dbg!(&answ1);
+    assert_eq!(answ1, 615700);
     let answ2 = part2(&parsed);
     dbg!(&answ2);
     assert!(answ2 > 1236364099896881);
+    assert!(answ2 > 1236455829265038);
+    assert_eq!(answ2, 1236463892941356);
 
     //puzzle.submit_answer(aoc::Part::One, &format!("{}", answ1))?;
     //puzzle.submit_answer(aoc::Part::Two, &format!("{}", answ2))?;
