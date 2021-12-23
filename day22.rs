@@ -15,9 +15,7 @@ use std::iter::FromIterator;
 
 use aoc::{dbg2, byte, BitCursor, ByteString};
 
-//#[derive(Eq,PartialEq,Clone,Debug,Hash)]
-
-type Range = std::ops::RangeInclusive<isize>;
+type Range = (i32, i32);
 type ParseResult = (Vec<(bool, Range, Range, Range)>);
 
 fn parse(data: &str) -> ParseResult {
@@ -32,23 +30,12 @@ fn parse(data: &str) -> ParseResult {
             let mut rng = rng.split("..").map(|x| x.parse().unwrap());
             let a = rng.next().unwrap();
             let b = rng.next().unwrap();
-            a..=b
+            (a, b)
         });
 
         (on, xyz.next().unwrap(), xyz.next().unwrap(), xyz.next().unwrap())
     })
     .collect::<Vec<_>>()
-    //let grid = data.lines().map(|line| {
-    //    line.chars().map(|c| c.to_digit(10).unwrap() as u8).collect::<Vec<_>>()
-    //}).collect::<Vec<_>>();
-    //let nrows = grid.len();
-    //let ncols = grid[0].len();
-    //let mut matrix = Array::zeros((nrows, ncols));
-    //for (r, line) in grid.iter().enumerate() {
-    //    for (c, val) in line.iter().enumerate() {
-    //        matrix[[r, c]] = *val;
-    //    }
-    //}
 }
 
 fn part1(input: &ParseResult) -> usize {
@@ -60,15 +47,15 @@ fn part1(input: &ParseResult) -> usize {
     on.len()
 }
 
-fn do_step1(on: &HashSet<(isize,isize,isize)>, instr: &(bool, Range, Range, Range)) -> HashSet<(isize,isize,isize)> {
+fn do_step1(on: &HashSet<(i32,i32,i32)>, instr: &(bool, Range, Range, Range)) -> HashSet<(i32,i32,i32)> {
     let mut res = on.clone();
 
-    let (onoff, xr, yr, zr) = instr;
+    let (onoff, xr, yr, zr) = *instr;
 
-    for x in max(-50, *xr.start())..=min(50, *xr.end()) {
-        for y in max(-50, *yr.start())..=min(50, *yr.end()) {
-            for z in max(-50, *zr.start())..=min(50, *zr.end()) {
-                if *onoff {
+    for x in max(-50, xr.0)..=min(50, xr.1) {
+        for y in max(-50, yr.0)..=min(50, yr.1) {
+            for z in max(-50, zr.0)..=min(50, zr.1) {
+                if onoff {
                     res.insert((x,y,z));
                 } else {
                     res.remove(&(x,y,z));
@@ -88,12 +75,12 @@ fn part2(input: &ParseResult) -> u64 {
 
     for (_line, instr) in input.iter().cloned().enumerate() {
         let (onoff, xr, yr, zr) = instr;
-        let (xlo, xhi) = (*xr.start(), *xr.end());
-        let (ylo, yhi) = (*yr.start(), *yr.end());
-        let (zlo, zhi) = (*zr.start(), *zr.end());
+        let (xlo, xhi) = (xr.0, xr.1);
+        let (ylo, yhi) = (yr.0, yr.1);
+        let (zlo, zhi) = (zr.0, zr.1);
 
         let next = [[xlo, ylo, zlo], [xhi, yhi, zhi]];
-        let nextvol = (xhi - xlo + 1) * (yhi - ylo + 1) * (zhi - zlo + 1);
+        let nextvol = (xhi as i64 - xlo as i64 + 1) * (yhi as i64 - ylo as i64 + 1) * (zhi as i64 - zlo as i64 + 1);
 
         let mut rem = Vec::new();
         for existing in 0..boxes.len() {
@@ -101,9 +88,9 @@ fn part2(input: &ParseResult) -> u64 {
                 // Cut overlapped region out of existing box.
                 delete_subcube(&mut rem, &mut boxes[existing], &overlap);
                 // Subtract deleted region from total.
-                let olx = (overlap[0][0], overlap[1][0]);
-                let oly = (overlap[0][1], overlap[1][1]);
-                let olz = (overlap[0][2], overlap[1][2]);
+                let olx = (overlap[0][0] as i64, overlap[1][0] as i64);
+                let oly = (overlap[0][1] as i64, overlap[1][1] as i64);
+                let olz = (overlap[0][2] as i64, overlap[1][2] as i64);
                 total -= ((olx.1 - olx.0 + 1) * (oly.1 - oly.0 + 1) * (olz.1 - olz.0 + 1)) as u64;
             }
         }
@@ -117,9 +104,9 @@ fn part2(input: &ParseResult) -> u64 {
     total
 }
 
-fn delete_subcube(rem: &mut Vec<[[isize;3];2]>, haystack: &mut [[isize;3];2], needle: &[[isize;3];2]) {
+fn delete_subcube(rem: &mut Vec<[[i32;3];2]>, haystack: &mut [[i32;3];2], needle: &[[i32;3];2]) {
     let haystack = {
-        let mut stack = [[isize::MIN,isize::MIN,isize::MIN],[isize::MIN,isize::MIN,isize::MIN]];
+        let mut stack = [[i32::MIN,i32::MIN,i32::MIN],[i32::MIN,i32::MIN,i32::MIN]];
         std::mem::swap(&mut stack, haystack);
         stack
     };
@@ -162,7 +149,7 @@ fn delete_subcube(rem: &mut Vec<[[isize;3];2]>, haystack: &mut [[isize;3];2], ne
 }
 
 #[inline]
-fn calc_overlap(a: &[[isize;3];2], b: &[[isize;3];2]) -> Option<[[isize;3];2]> {
+fn calc_overlap(a: &[[i32;3];2], b: &[[i32;3];2]) -> Option<[[i32;3];2]> {
     let xhi = min(a[1][0], b[1][0]);
     let yhi = min(a[1][1], b[1][1]);
     let zhi = min(a[1][2], b[1][2]);
