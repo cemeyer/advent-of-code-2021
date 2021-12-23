@@ -89,6 +89,9 @@ fn part2(input: &ParseResult) -> u64 {
             boxes.push(next);
         }
     }
+    //dbg2!(boxes.len());
+    //let _dead = [[i32::MIN,i32::MIN,i32::MIN],[i32::MIN,i32::MIN,i32::MIN]];
+    //dbg2!(boxes.iter().filter(|b| *b == &_dead).count());
     total
 }
 
