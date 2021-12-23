@@ -38,35 +38,23 @@ fn parse(data: &str) -> ParseResult {
     .collect::<Vec<_>>()
 }
 
-fn part1(input: &ParseResult) -> usize {
-    let mut on = HashSet::new();
-    for step in input.iter() {
-        on = do_step1(&on, step);
-    }
-
-    on.len()
-}
-
-fn do_step1(on: &HashSet<(i32,i32,i32)>, instr: &(bool, Range, Range, Range)) -> HashSet<(i32,i32,i32)> {
-    let mut res = on.clone();
-
-    let (onoff, xr, yr, zr) = *instr;
-
-    for x in max(-50, xr.0)..=min(50, xr.1) {
-        for y in max(-50, yr.0)..=min(50, yr.1) {
-            for z in max(-50, zr.0)..=min(50, zr.1) {
-                if onoff {
-                    res.insert((x,y,z));
-                } else {
-                    res.remove(&(x,y,z));
-                }
-            }
-        }
-    }
-
-
-
-    res
+fn part1(input: &ParseResult) -> u64 {
+    let bounded = input.iter()
+        .copied()
+        .filter(|(_, x, y, z)| {
+            (x.1 >= -50 && x.0 <= 50) &&
+            (y.1 >= -50 && y.0 <= 50) &&
+            (z.1 >= -50 && z.0 <= 50)
+        })
+        .map(|(onoff, x, y, z)| {
+            (onoff,
+             (max(-50, x.0), min(50, x.1)),
+             (max(-50, y.0), min(50, y.1)),
+             (max(-50, z.0), min(50, z.1)),
+             )
+    })
+    .collect::<Vec<_>>();
+    part2(&bounded)
 }
 
 fn part2(input: &ParseResult) -> u64 {
