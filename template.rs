@@ -13,6 +13,8 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+
 use aoc::{dbg2, byte, BitCursor, ByteString};
 
 //type Vec3f = Vector3<f64>;

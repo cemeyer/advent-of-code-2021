@@ -13,6 +13,8 @@ use std::collections::*;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
+
 use aoc::{dbg2, byte, BitCursor, ByteString};
 
 #[derive(Eq,PartialEq,Clone,Debug,Hash,PartialOrd,Ord)]
@@ -117,7 +119,7 @@ fn part1() -> i64 {
     // Basic game-tree search using best-first search on the cost function, which we need to
     // minimize.
     let mut queue = BinaryHeap::new();
-    let mut visited = HashSet::new();
+    let mut visited = HashSet::default();
     let start = GameState { locs, };
     queue.push((0i64, start.clone()));
     visited.insert(start);
@@ -350,7 +352,7 @@ fn part2() -> i64 {
     // Basic game-tree search using best-first search on the cost function, which we need to
     // minimize.
     let mut queue = BinaryHeap::new();
-    let mut visited = HashSet::new();
+    let mut visited = HashSet::default();
     let start = GameState2 { locs, };
     queue.push((0i64, start.clone()));
     visited.insert(start);
