@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Result};
 use bitvec::prelude::*;
 use graphlib::{Graph, VertexId};
-use itertools::iproduct;
+use itertools::{Itertools, iproduct};
 //use nalgebra::*;
 use ndarray::prelude::*;
 use ndarray::{ArcArray2, parallel::par_azip};
