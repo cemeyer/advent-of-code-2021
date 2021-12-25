@@ -2,6 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use bitvec::prelude::*;
+use cranelift::prelude::*;
+use cranelift_jit::{JITBuilder, JITModule};
+use cranelift_module::Module;
 use graphlib::{Graph, VertexId};
 use itertools::{Itertools, iproduct};
 //use nalgebra::*;
@@ -151,7 +154,158 @@ impl Machine {
     }
 }
 
-fn search(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: u16, z: i64) -> Option<i64> {
+struct JitMachine {
+    regs: [i64; 4],
+    pc: isize,
+    segments: Vec<fn(i64,i64) -> i64>,
+    module: JITModule,
+}
+
+impl JitMachine {
+    fn new(program: &[I]) -> Self {
+        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut module = JITModule::new(builder);
+        let fnbuilder = FunctionBuilderContext::new();
+
+        let mut sig = module.make_signature();
+        sig.params.push(AbiParam::new(types::I64));
+        sig.params.push(AbiParam::new(types::I64));
+        sig.returns.push(AbiParam::new(types::I64));
+
+        let mut ctx = module.make_context();
+        let segments = program.chunks(18).enumerate().map(|(i, segment)| {
+            let func = module.declare_function(
+                &format!("seg{}", i),
+                cranelift_module::Linkage::Local,
+                &sig)
+                .unwrap();
+
+            ctx.func.signature = sig.clone();
+            ctx.func.name = ExternalName::user(0, func.as_u32());
+
+            let mut func_ctx = FunctionBuilderContext::new();
+            let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
+            let block = bcx.create_block();
+
+            bcx.switch_to_block(block);
+            bcx.append_block_params_for_function_params(block);
+
+            let w = Variable::new(R::W as usize);
+            let x = Variable::new(R::X as usize);
+            let y = Variable::new(R::Y as usize);
+            let z = Variable::new(R::Z as usize);
+            let regs = vec![w,x,y,z];
+            bcx.declare_var(w, types::I64);
+            bcx.declare_var(x, types::I64);
+            bcx.declare_var(y, types::I64);
+            bcx.declare_var(z, types::I64);
+
+            bcx.def_var(w, bcx.block_params(block)[0]);
+            bcx.def_var(z, bcx.block_params(block)[1]);
+
+            let zero = bcx.ins().iconst(types::I64, 0);
+            bcx.def_var(x, zero);
+            bcx.def_var(y, zero);
+
+            for cmd in segment[1..].iter() {
+                match *cmd {
+                    I::Inp(_) => { unreachable!(); }
+                    I::Add(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let arg2 = bcx.use_var(regs[src as usize]);
+                        let tmp = bcx.ins().iadd(arg1, arg2);
+                        bcx.def_var(dst, tmp);
+                    }
+                    I::AddI(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let tmp = bcx.ins().iadd_imm(arg1, src);
+                        bcx.def_var(dst, tmp);
+                    }
+                    I::Mul(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let arg2 = bcx.use_var(regs[src as usize]);
+                        let tmp = bcx.ins().imul(arg1, arg2);
+                        bcx.def_var(dst, tmp);
+                    }
+                    I::MulI(dst, 0) => {
+                        let dst = regs[dst as usize];
+                        bcx.def_var(dst, zero);
+                    }
+                    I::MulI(dst, _) => { unreachable!(); }
+                    I::Div(dst, _) => { unreachable!(); }
+                    I::DivI(dst, 1) => {
+                        // nop
+                    }
+                    I::DivI(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let tmp = bcx.ins().sdiv_imm(arg1, src);
+                        bcx.def_var(dst, tmp);
+                    }
+                    I::Mod(dst, _) => { unreachable!(); }
+                    I::ModI(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let tmp = bcx.ins().srem_imm(arg1, src);
+                        bcx.def_var(dst, tmp);
+                    }
+                    I::Eql(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let arg2 = bcx.use_var(regs[src as usize]);
+                        let tmp = bcx.ins().icmp(IntCC::Equal, arg1, arg2);
+                        let tmp2 = bcx.ins().bint(types::I64, tmp);
+                        bcx.def_var(dst, tmp2);
+                    }
+                    I::EqlI(dst, src) => {
+                        let dst = regs[dst as usize];
+                        let arg1 = bcx.use_var(dst);
+                        let tmp = bcx.ins().icmp_imm(IntCC::Equal, arg1, src);
+                        let tmp2 = bcx.ins().bint(types::I64, tmp);
+                        bcx.def_var(dst, tmp2);
+                    }
+                }
+            }
+
+            let z_val = bcx.use_var(z);
+            bcx.ins().return_(&[z_val]);
+            bcx.seal_all_blocks();
+            bcx.finalize();
+            let mut trap_sink = cranelift_codegen::binemit::NullTrapSink {};
+            let mut stack_map_sink = cranelift_codegen::binemit::NullStackMapSink {};
+            module.define_function(func, &mut ctx, &mut trap_sink, &mut stack_map_sink).unwrap();
+            module.clear_context(&mut ctx);
+
+            func
+        })
+        .collect::<Vec<_>>();
+
+        module.finalize_definitions();
+        let segments = segments.into_iter().map(|segment| {
+            let code = module.get_finalized_function(segment);
+            let ptr = unsafe { std::mem::transmute::<_, fn(i64,i64) -> i64>(code) };
+            ptr
+        })
+        .collect();
+
+        Self {
+            regs: [0; 4],
+            pc: 0,
+            module,
+            segments,
+        }
+    }
+
+    fn run_until(&mut self, _endpc: isize) {
+        let idx = (self.pc as usize) / 18;
+        self.regs[R::Z as usize] = self.segments[idx](self.regs[R::W as usize], self.regs[R::Z as usize]);
+    }
+}
+
+fn search(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut JitMachine, pc: u16, z: i64) -> Option<i64> {
     if let Some(&val) = cache.get(&(pc, z)) {
         return val;
     }
@@ -162,7 +316,7 @@ fn search(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: u
         emu.run_until(pc as isize + 18);
         let z = emu.regs[R::Z as usize];
 
-        if (pc as usize + 18) == emu.program.len() {
+        if (pc as usize + 18) == 14 * 18 {
             if z == 0 {
                 cache.insert((pc, z), Some(digit));
                 return Some(digit);
@@ -181,7 +335,7 @@ fn search(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: u
 }
 
 fn part1(program: &ParseResult) -> i64 {
-    let mut emu = Machine::new(program);
+    let mut emu = JitMachine::new(program);
     let mut cache = HashMap::default();
 
     let mut backwards = search(&mut cache, &mut emu, 0, 0).unwrap();
@@ -194,7 +348,7 @@ fn part1(program: &ParseResult) -> i64 {
     forwards
 }
 
-fn search2(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: u16, z: i64) -> Option<i64> {
+fn search2(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut JitMachine, pc: u16, z: i64) -> Option<i64> {
     if let Some(&val) = cache.get(&(pc, z)) {
         return val;
     }
@@ -205,7 +359,7 @@ fn search2(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: 
         emu.run_until(pc as isize + 18);
         let z = emu.regs[R::Z as usize];
 
-        if (pc as usize + 18) == emu.program.len() {
+        if (pc as usize + 18) == 14 * 18 {
             if z == 0 {
                 cache.insert((pc, z), Some(digit));
                 return Some(digit);
@@ -224,7 +378,7 @@ fn search2(cache: &mut HashMap<(u16, i64), Option<i64>>, emu: &mut Machine, pc: 
 }
 
 fn part2(program: &ParseResult) -> i64 {
-    let mut emu = Machine::new(program);
+    let mut emu = JitMachine::new(program);
     let mut cache = HashMap::default();
 
     let mut backwards = search2(&mut cache, &mut emu, 0, 0).unwrap();

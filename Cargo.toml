@@ -134,6 +134,10 @@ path = "template.rs"
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
 bitvec = "0.22.3"
+cranelift = "0.79.0"
+cranelift-codegen = "0.79.0"
+cranelift-jit = "0.79.0"
+cranelift-module = "0.79.0"
 graphlib = "0.6.3"
 hex = "0.4.3"
 itertools = "0.10.3"
