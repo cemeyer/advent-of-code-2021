@@ -154,6 +154,122 @@ impl Machine {
     }
 }
 
+fn jit_segment(
+    module: &mut JITModule,
+    ctx: &mut cranelift_codegen::Context,
+    sig: &Signature,
+    i: usize,
+    segment: &[I],
+    ) -> cranelift_module::FuncId
+{
+    let func = module.declare_function(
+        &format!("seg{}", i),
+        cranelift_module::Linkage::Local,
+        sig)
+        .unwrap();
+
+    ctx.func.signature = sig.clone();
+    ctx.func.name = ExternalName::user(0, func.as_u32());
+
+    let mut func_ctx = FunctionBuilderContext::new();
+    let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
+    let block = bcx.create_block();
+
+    bcx.switch_to_block(block);
+    bcx.append_block_params_for_function_params(block);
+
+    let w = Variable::new(R::W as usize);
+    let x = Variable::new(R::X as usize);
+    let y = Variable::new(R::Y as usize);
+    let z = Variable::new(R::Z as usize);
+    let regs = vec![w,x,y,z];
+    bcx.declare_var(w, types::I64);
+    bcx.declare_var(x, types::I64);
+    bcx.declare_var(y, types::I64);
+    bcx.declare_var(z, types::I64);
+
+    bcx.def_var(w, bcx.block_params(block)[0]);
+    bcx.def_var(z, bcx.block_params(block)[1]);
+
+    let zero = bcx.ins().iconst(types::I64, 0);
+    bcx.def_var(x, zero);
+    bcx.def_var(y, zero);
+
+    for cmd in segment[1..].iter() {
+        match *cmd {
+            I::Inp(_) => { unreachable!(); }
+            I::Add(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let arg2 = bcx.use_var(regs[src as usize]);
+                let tmp = bcx.ins().iadd(arg1, arg2);
+                bcx.def_var(dst, tmp);
+            }
+            I::AddI(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let tmp = bcx.ins().iadd_imm(arg1, src);
+                bcx.def_var(dst, tmp);
+            }
+            I::Mul(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let arg2 = bcx.use_var(regs[src as usize]);
+                let tmp = bcx.ins().imul(arg1, arg2);
+                bcx.def_var(dst, tmp);
+            }
+            I::MulI(dst, 0) => {
+                let dst = regs[dst as usize];
+                bcx.def_var(dst, zero);
+            }
+            I::MulI(dst, _) => { unreachable!(); }
+            I::Div(dst, _) => { unreachable!(); }
+            I::DivI(dst, 1) => {
+                // nop
+            }
+            I::DivI(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let tmp = bcx.ins().sdiv_imm(arg1, src);
+                bcx.def_var(dst, tmp);
+            }
+            I::Mod(dst, _) => { unreachable!(); }
+            I::ModI(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let tmp = bcx.ins().srem_imm(arg1, src);
+                bcx.def_var(dst, tmp);
+            }
+            I::Eql(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let arg2 = bcx.use_var(regs[src as usize]);
+                let tmp = bcx.ins().icmp(IntCC::Equal, arg1, arg2);
+                let tmp2 = bcx.ins().bint(types::I64, tmp);
+                bcx.def_var(dst, tmp2);
+            }
+            I::EqlI(dst, src) => {
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(dst);
+                let tmp = bcx.ins().icmp_imm(IntCC::Equal, arg1, src);
+                let tmp2 = bcx.ins().bint(types::I64, tmp);
+                bcx.def_var(dst, tmp2);
+            }
+        }
+    }
+
+    let z_val = bcx.use_var(z);
+    bcx.ins().return_(&[z_val]);
+    bcx.seal_all_blocks();
+    bcx.finalize();
+    let mut trap_sink = cranelift_codegen::binemit::NullTrapSink {};
+    let mut stack_map_sink = cranelift_codegen::binemit::NullStackMapSink {};
+    module.define_function(func, ctx, &mut trap_sink, &mut stack_map_sink).unwrap();
+    module.clear_context(ctx);
+
+    func
+}
+
 struct JitMachine {
     regs: [i64; 4],
     pc: isize,
@@ -165,7 +281,6 @@ impl JitMachine {
     fn new(program: &[I]) -> Self {
         let builder = JITBuilder::new(cranelift_module::default_libcall_names());
         let mut module = JITModule::new(builder);
-        let fnbuilder = FunctionBuilderContext::new();
 
         let mut sig = module.make_signature();
         sig.params.push(AbiParam::new(types::I64));
@@ -174,112 +289,7 @@ impl JitMachine {
 
         let mut ctx = module.make_context();
         let segments = program.chunks(18).enumerate().map(|(i, segment)| {
-            let func = module.declare_function(
-                &format!("seg{}", i),
-                cranelift_module::Linkage::Local,
-                &sig)
-                .unwrap();
-
-            ctx.func.signature = sig.clone();
-            ctx.func.name = ExternalName::user(0, func.as_u32());
-
-            let mut func_ctx = FunctionBuilderContext::new();
-            let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
-            let block = bcx.create_block();
-
-            bcx.switch_to_block(block);
-            bcx.append_block_params_for_function_params(block);
-
-            let w = Variable::new(R::W as usize);
-            let x = Variable::new(R::X as usize);
-            let y = Variable::new(R::Y as usize);
-            let z = Variable::new(R::Z as usize);
-            let regs = vec![w,x,y,z];
-            bcx.declare_var(w, types::I64);
-            bcx.declare_var(x, types::I64);
-            bcx.declare_var(y, types::I64);
-            bcx.declare_var(z, types::I64);
-
-            bcx.def_var(w, bcx.block_params(block)[0]);
-            bcx.def_var(z, bcx.block_params(block)[1]);
-
-            let zero = bcx.ins().iconst(types::I64, 0);
-            bcx.def_var(x, zero);
-            bcx.def_var(y, zero);
-
-            for cmd in segment[1..].iter() {
-                match *cmd {
-                    I::Inp(_) => { unreachable!(); }
-                    I::Add(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let arg2 = bcx.use_var(regs[src as usize]);
-                        let tmp = bcx.ins().iadd(arg1, arg2);
-                        bcx.def_var(dst, tmp);
-                    }
-                    I::AddI(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let tmp = bcx.ins().iadd_imm(arg1, src);
-                        bcx.def_var(dst, tmp);
-                    }
-                    I::Mul(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let arg2 = bcx.use_var(regs[src as usize]);
-                        let tmp = bcx.ins().imul(arg1, arg2);
-                        bcx.def_var(dst, tmp);
-                    }
-                    I::MulI(dst, 0) => {
-                        let dst = regs[dst as usize];
-                        bcx.def_var(dst, zero);
-                    }
-                    I::MulI(dst, _) => { unreachable!(); }
-                    I::Div(dst, _) => { unreachable!(); }
-                    I::DivI(dst, 1) => {
-                        // nop
-                    }
-                    I::DivI(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let tmp = bcx.ins().sdiv_imm(arg1, src);
-                        bcx.def_var(dst, tmp);
-                    }
-                    I::Mod(dst, _) => { unreachable!(); }
-                    I::ModI(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let tmp = bcx.ins().srem_imm(arg1, src);
-                        bcx.def_var(dst, tmp);
-                    }
-                    I::Eql(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let arg2 = bcx.use_var(regs[src as usize]);
-                        let tmp = bcx.ins().icmp(IntCC::Equal, arg1, arg2);
-                        let tmp2 = bcx.ins().bint(types::I64, tmp);
-                        bcx.def_var(dst, tmp2);
-                    }
-                    I::EqlI(dst, src) => {
-                        let dst = regs[dst as usize];
-                        let arg1 = bcx.use_var(dst);
-                        let tmp = bcx.ins().icmp_imm(IntCC::Equal, arg1, src);
-                        let tmp2 = bcx.ins().bint(types::I64, tmp);
-                        bcx.def_var(dst, tmp2);
-                    }
-                }
-            }
-
-            let z_val = bcx.use_var(z);
-            bcx.ins().return_(&[z_val]);
-            bcx.seal_all_blocks();
-            bcx.finalize();
-            let mut trap_sink = cranelift_codegen::binemit::NullTrapSink {};
-            let mut stack_map_sink = cranelift_codegen::binemit::NullStackMapSink {};
-            module.define_function(func, &mut ctx, &mut trap_sink, &mut stack_map_sink).unwrap();
-            module.clear_context(&mut ctx);
-
-            func
+            jit_segment(&mut module, &mut ctx, &sig, i, segment)
         })
         .collect::<Vec<_>>();
 
