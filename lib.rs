@@ -311,10 +311,15 @@ fn get_stats_session(session: &str, year: u16) -> Result<Stats> {
             if time == "-" {
                 None
             } else {
-                let mut time_parts = time.split(':');
-                let time_hour = time_parts.next().unwrap().parse::<u8>().unwrap();
-                let time_min = time_parts.next().unwrap().parse::<u8>().unwrap();
-                let time_sec = time_parts.next().unwrap().parse::<u8>().unwrap();
+                let (time_hour, time_min, time_sec) = if time == "&gt;24h" {
+                    (24, 0, 1)
+                } else {
+                    let mut time_parts = time.split(':');
+                    let time_hour = time_parts.next().unwrap().parse::<u8>().unwrap();
+                    let time_min = time_parts.next().unwrap().parse::<u8>().unwrap();
+                    let time_sec = time_parts.next().unwrap().parse::<u8>().unwrap();
+                    (time_hour, time_min, time_sec)
+                };
 
                 let rank = words.next().unwrap().parse::<u32>().unwrap();
                 let score = words.next().unwrap().parse::<u8>().unwrap();
