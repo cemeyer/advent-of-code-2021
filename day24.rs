@@ -160,6 +160,7 @@ fn jit_segment(
     sig: &Signature,
     i: usize,
     segment: &[I],
+    brute_force: bool,
     ) -> cranelift_module::FuncId
 {
     let func = module.declare_function(
@@ -173,7 +174,12 @@ fn jit_segment(
 
     let mut func_ctx = FunctionBuilderContext::new();
     let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
-    let block = bcx.create_block();
+    let mut block = bcx.create_block();
+    let fault_block = if brute_force {
+        Some(bcx.create_block())
+    } else {
+        None
+    };
 
     bcx.switch_to_block(block);
     bcx.append_block_params_for_function_params(block);
@@ -188,16 +194,62 @@ fn jit_segment(
     bcx.declare_var(y, types::I64);
     bcx.declare_var(z, types::I64);
 
-    bcx.def_var(w, bcx.block_params(block)[0]);
-    bcx.def_var(z, bcx.block_params(block)[1]);
-
     let zero = bcx.ins().iconst(types::I64, 0);
+
+    let (inp, shift) = if brute_force {
+        let inp = Variable::new(4);
+        let shift = Variable::new(5);
+        bcx.declare_var(inp, types::I64);
+        bcx.declare_var(shift, types::I64);
+        bcx.def_var(inp, bcx.block_params(block)[0]);
+        bcx.def_var(w, zero);
+        bcx.def_var(z, zero);
+        let shiftstart = bcx.ins().iconst(types::I64, 10000000000000);
+        bcx.def_var(shift, shiftstart);
+        (Some(inp), Some(shift))
+    } else {
+        bcx.def_var(w, bcx.block_params(block)[0]);
+        bcx.def_var(z, bcx.block_params(block)[1]);
+        (None, None)
+    };
+
     bcx.def_var(x, zero);
     bcx.def_var(y, zero);
 
-    for cmd in segment[1..].iter() {
+    for cmd in segment.iter() {
         match *cmd {
-            I::Inp(_) => { unreachable!(); }
+            I::Inp(dst) => {
+                // In non-brute force mode, we initialized w via param already.  Emit nothing.
+                if !brute_force {
+                    continue;
+                }
+
+                let dst = regs[dst as usize];
+                let arg1 = bcx.use_var(inp.unwrap());
+                let arg2 = bcx.use_var(shift.unwrap());
+                // Next digit:
+                let tmp = bcx.ins().udiv(arg1, arg2);
+                let tmp = bcx.ins().urem_imm(tmp, 10);
+                // Fault if zero
+                bcx.ins().brz(tmp, fault_block.unwrap(), &[]);
+
+                // Cranelift doesn't allow basic blocks to continue after a branch, so create a new
+                // one and unconditionally "jump" to it.  Hopefully this results in straight-line
+                // code...
+                block = {
+                    let nextblock = bcx.create_block();
+                    // Makes no difference:
+                    //bcx.insert_block_after(nextblock, block);
+                    nextblock
+                };
+                bcx.ins().jump(block, &[]);
+                bcx.switch_to_block(block);
+
+                bcx.def_var(dst, tmp);
+                // Adjust shift:
+                let tmp2 = bcx.ins().sdiv_imm(arg2, 10);
+                bcx.def_var(shift.unwrap(), tmp2);
+            }
             I::Add(dst, src) => {
                 let dst = regs[dst as usize];
                 let arg1 = bcx.use_var(dst);
@@ -260,11 +312,22 @@ fn jit_segment(
 
     let z_val = bcx.use_var(z);
     bcx.ins().return_(&[z_val]);
+
+    fault_block.map(|fault_block| {
+        // No difference:
+        //bcx.insert_block_after(fault_block, block);
+        bcx.switch_to_block(fault_block);
+        let faultval = bcx.ins().iconst(types::I64, -1);
+        bcx.ins().return_(&[faultval]);
+    });
+
     bcx.seal_all_blocks();
     bcx.finalize();
     let mut trap_sink = cranelift_codegen::binemit::NullTrapSink {};
     let mut stack_map_sink = cranelift_codegen::binemit::NullStackMapSink {};
+    ctx.want_disasm = true;
     module.define_function(func, ctx, &mut trap_sink, &mut stack_map_sink).unwrap();
+    std::fs::write("disas.txt", ctx.mach_compile_result.as_ref().unwrap().disasm.as_ref().unwrap()).unwrap();
     module.clear_context(ctx);
 
     func
@@ -289,7 +352,7 @@ impl JitMachine {
 
         let mut ctx = module.make_context();
         let segments = program.chunks(18).enumerate().map(|(i, segment)| {
-            jit_segment(&mut module, &mut ctx, &sig, i, segment)
+            jit_segment(&mut module, &mut ctx, &sig, i, segment, false)
         })
         .collect::<Vec<_>>();
 
@@ -306,6 +369,31 @@ impl JitMachine {
             pc: 0,
             module,
             segments,
+        }
+    }
+
+    fn new_brute(program: &[I]) -> Self {
+        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut module = JITModule::new(builder);
+
+        let mut sig = module.make_signature();
+        sig.params.push(AbiParam::new(types::I64));
+        // 2nd param isn't actually used, we're just preserving ABI with non-brute force.
+        sig.params.push(AbiParam::new(types::I64));
+        sig.returns.push(AbiParam::new(types::I64));
+
+        let mut ctx = module.make_context();
+        let func = jit_segment(&mut module, &mut ctx, &sig, 0, program, true);
+
+        module.finalize_definitions();
+        let code = module.get_finalized_function(func);
+        let ptr = unsafe { std::mem::transmute::<_, fn(i64,i64) -> i64>(code) };
+
+        Self {
+            regs: [0; 4],
+            pc: 0,
+            module,
+            segments: vec![ptr],
         }
     }
 
@@ -401,15 +489,36 @@ fn part2(program: &ParseResult) -> i64 {
     forwards
 }
 
+fn part2_brute(program: &ParseResult) -> i64 {
+    let emu = JitMachine::new_brute(program);
+    let func = emu.segments[0];
+    for i in 11111111111111..=99999999999999 {
+    //for i in 11811951311485..=11811951311485 {
+    //for i in 11811951311485..=99999999999999 {
+        let res = func(i, 0);
+        if res == 0 {
+            return i;
+        }
+        if res == -1 {
+            //println!("fault: {}", i);
+        }
+        if i % 10_000_000 == 0 {
+            dbg!(i);
+        }
+    }
+    unreachable!();
+}
+
 fn main() -> Result<()> {
     let mut puzzle = aoc::Puzzle::new(2021, 24)?;
     let data = puzzle.get_data()?;
     let parsed = parse(data);
 
-    let answ1 = part1(&parsed);
-    dbg!(&answ1);
-    assert_eq!(answ1, 52926995971999);
-    let answ2 = part2(&parsed);
+    //let answ1 = part1(&parsed);
+    //dbg!(&answ1);
+    //assert_eq!(answ1, 52926995971999);
+    //let answ2 = part2(&parsed);
+    let answ2 = part2_brute(&parsed);
     dbg!(&answ2);
     assert_eq!(answ2, 11811951311485);
     Ok(())
