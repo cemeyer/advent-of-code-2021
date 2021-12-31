@@ -342,7 +342,11 @@ struct JitMachine {
 
 impl JitMachine {
     fn new(program: &[I]) -> Self {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut flag_builder = cranelift_codegen::settings::builder();
+        flag_builder.set("opt_level", "speed").unwrap();
+        let isa_builder = cranelift_native::builder().unwrap();
+        let isa = isa_builder.finish(settings::Flags::new(flag_builder));
+        let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let mut module = JITModule::new(builder);
 
         let mut sig = module.make_signature();
@@ -373,7 +377,11 @@ impl JitMachine {
     }
 
     fn new_brute(program: &[I]) -> Self {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut flag_builder = cranelift_codegen::settings::builder();
+        flag_builder.set("opt_level", "speed").unwrap();
+        let isa_builder = cranelift_native::builder().unwrap();
+        let isa = isa_builder.finish(settings::Flags::new(flag_builder));
+        let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let mut module = JITModule::new(builder);
 
         let mut sig = module.make_signature();
